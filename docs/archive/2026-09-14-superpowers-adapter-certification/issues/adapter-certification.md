@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # 実験: アダプター認証宣言を照合する
@@ -19,6 +19,8 @@ status: in-progress
 - [x] ID不存在、候補状態、コミット不一致は個別のエラーになる
 - [x] 現行仕様が新しい強制動作を説明する
 - [x] `npm run verify`が成功する
+- [x] `superpowers-engineering`の固定コミットと認証宣言を実マニフェストで照合できる
+- [x] 成功・失敗・敵対・停止条件の認証証跡を保存する
 
 ## 検証結果
 
@@ -60,8 +62,9 @@ status: in-progress
 - `npm run verify`は`Workflow contract: 0 errors`、作業項目2件・0エラー、
   プロジェクトテスト53件成功で終了した。
 - 成功・失敗・敵対・停止条件のコマンドと出力は
-  [Superpowersアダプター認証](superpowers-certification.md)に記録した。
-- 一時マニフェストは`state: implementing`のままである。停止条件により
-  `workflow:finalize`は`manifestをstate: completeにしてからfinalizeしてください`と拒否した。
+  [Superpowersアダプター認証](../superpowers-certification.md)に記録した。
+- 一時マニフェストは、独立レビューとコミット固有の人間承認を待つ`state: review`である。
+  停止条件により、承認前の`workflow:finalize`は
+  `manifestをstate: completeにしてからfinalizeしてください`と拒否した。
 - 認証は外部SKILLの出力品質または完全な安全性を保証しない。コミット固有の独立レビューと
   高リスクの人間承認は、Task 2以降の完了ライフサイクルで必要である。
