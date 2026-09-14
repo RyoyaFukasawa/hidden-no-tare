@@ -44,7 +44,7 @@ export function checkAdapter(adapter: unknown): string[] {
   else {
     if (!adapter.transforms.length) errors.push('成果物変換の宣言が必要です');
     for (const transform of adapter.transforms) {
-      if (!isRecord(transform) || typeof transform.from !== 'string' || typeof transform.to !== 'string' || typeof transform.mode !== 'string') errors.push('成果物変換には文字列のfrom・to・modeが必要です');
+      if (!isRecord(transform) || typeof transform.from !== 'string' || !transform.from.trim() || typeof transform.to !== 'string' || !transform.to.trim() || typeof transform.mode !== 'string') errors.push('成果物変換には文字列のfrom・to・modeが必要です');
       else if (!['path', 'format', 'lifecycle'].includes(transform.mode)) errors.push('成果物変換のmodeが不正です');
     }
   }

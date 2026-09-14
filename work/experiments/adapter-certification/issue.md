@@ -38,5 +38,11 @@ status: in-progress
 - Adapter runtime GREEN: `node --test scripts/workflow/contract.test.ts`は15件すべて成功した。
 - `npm run verify`は、契約検証0エラー、作業項目2件・0エラー、Markdown 0件、
   プロジェクトチェック53件すべて成功で終了した。
+- Transform endpoint RED: `node --test scripts/workflow/contract.test.ts`は1件失敗した。
+  空文字列または空白だけの`from`・`to`を含む変換が許可される既存の境界不足による
+  期待どおりの失敗である。
+- Transform endpoint GREEN: `node --test scripts/workflow/contract.test.ts`は15件すべて成功した。
+- `npm run verify`は、契約検証0エラー、作業項目2件・0エラー、Markdown 0件、
+  プロジェクトチェック53件すべて成功で終了した。
 
 人間によるコミット固有の承認待ちのため、statusは`in-progress`のままとする。
