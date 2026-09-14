@@ -52,3 +52,16 @@ status: in-progress
 
 このworktreeでは、mainの契約修正を取り込んだ後に、成功・失敗・敵対ケースの
 認証証跡とコミット固有の最終レビューを追加するまで、statusは`in-progress`のままとする。
+
+## アダプター認証の証跡
+
+- `superpowers-engineering`を固定コミット
+  `b36e0829c6d0140e93cfef2ca599b1b07d4a7797`で`certified`へ昇格した。
+- `npm run verify`は`Workflow contract: 0 errors`、作業項目2件・0エラー、
+  プロジェクトテスト53件成功で終了した。
+- 成功・失敗・敵対・停止条件のコマンドと出力は
+  [Superpowersアダプター認証](superpowers-certification.md)に記録した。
+- 一時マニフェストは`state: implementing`のままである。停止条件により
+  `workflow:finalize`は`manifestをstate: completeにしてからfinalizeしてください`と拒否した。
+- 認証は外部SKILLの出力品質または完全な安全性を保証しない。コミット固有の独立レビューと
+  高リスクの人間承認は、Task 2以降の完了ライフサイクルで必要である。
