@@ -88,6 +88,7 @@ export function checkManifest(manifest: WorkflowManifest, config: WorkflowConfig
   if (!workflowStates.includes(manifest.state)) errors.push('不正な作業状態です');
   if (manifest.risk !== null && !riskLevels.includes(manifest.risk)) errors.push('不正なリスク分類です');
   if (!manifest.workflow.name.trim() || !manifest.workflow.version.trim() || !manifest.workflow.adapter.trim()) errors.push('外部ワークフローの名前・固定バージョン・アダプターが必要です');
+  if (typeof manifest.workflow.certified !== 'boolean') errors.push('workflow.certifiedはbooleanで指定してください');
   const unknown = Object.entries(manifest.traits).filter(([key, value]) => key !== 'highRiskCategories' && value === null);
   if (unknown.length && !['unclassified', 'researching'].includes(manifest.state)) errors.push('未分類の変更特性があるためresearchingより先へ進めません');
   if (manifest.state === 'complete' && !manifest.classificationConfirmed) errors.push('完了には変更分類の確定が必要です');

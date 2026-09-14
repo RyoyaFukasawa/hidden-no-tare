@@ -1,3 +1,5 @@
+import type { WorkflowManifest } from './contract.ts';
+
 export interface AdapterManifest {
   schemaVersion: 1;
   id: string;
@@ -6,6 +8,15 @@ export interface AdapterManifest {
   transforms: { from: string; to: string; mode: 'path' | 'format' | 'lifecycle' }[];
   requiredPermissions: ('filesystem-read' | 'filesystem-write' | 'network-read' | 'external-write')[];
   certification: { status: 'candidate' | 'certified'; testedAt?: string; contractVersion: number; tests: string[] };
+}
+
+export function checkCertificationClaim(manifest: WorkflowManifest, adapters: AdapterManifest[]): string[] {
+  if (manifest.workflow.certified === false) return [];
+  const adapter = adapters.find(candidate => candidate.id === manifest.workflow.adapter);
+  if (!adapter) return [`認証済みアダプターがありません: ${manifest.workflow.adapter}`];
+  if (adapter.certification.status !== 'certified') return [`アダプターは候補状態です: ${adapter.id}`];
+  if (adapter.workflow.commit !== manifest.workflow.version) return [`アダプターの固定commitが一致しません: ${adapter.id}`];
+  return [];
 }
 
 export function checkAdapter(adapter: AdapterManifest): string[] {
@@ -17,6 +28,7 @@ export function checkAdapter(adapter: AdapterManifest): string[] {
   if (!adapter.stages.length) errors.push('stageが必要です');
   if (new Set(adapter.stages).size !== adapter.stages.length) errors.push('stageが重複しています');
   if (!adapter.transforms.length) errors.push('成果物変換の宣言が必要です');
+  if (!['candidate', 'certified'].includes(adapter.certification.status)) errors.push('adapterのcertification.statusはcandidateまたはcertifiedにしてください');
   if (adapter.certification.status === 'certified') {
     const requiredTests = ['success', 'failure', 'hostile'];
     for (const test of requiredTests) if (!adapter.certification.tests.includes(test)) errors.push(`認証テストがありません: ${test}`);
