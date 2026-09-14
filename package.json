@@ -1,0 +1,25 @@
+{
+  "name": "project-work-flow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "scripts": {
+    "check": "node scripts/completion-check/check-work-items.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/completion-check/work-items.test.ts scripts/adr/adr.test.ts scripts/docs-check/docs-check.test.ts",
+    "verify": "node scripts/verify.ts",
+    "adr:generate": "node scripts/adr/generate.ts",
+    "adr:check": "node scripts/adr/check.ts",
+    "lint:md": "node scripts/docs-check/check.ts markdown",
+    "lint:links": "node scripts/docs-check/check.ts links",
+    "lint:links:online": "node scripts/docs-check/check.ts links-online"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.3",
+    "markdownlint-cli2": "0.23.2"
+  }
+}
