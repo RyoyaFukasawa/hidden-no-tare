@@ -80,6 +80,7 @@ test('不正なadapter JSONを安全に構造検証する', () => {
     { name: 'stages item', value: { ...adapter, stages: ['plan', 1] }, expected: 'stageに不正な値があります' },
     { name: 'transforms string', value: { ...adapter, transforms: 'format' }, expected: '成果物変換はオブジェクトの配列で指定してください' },
     { name: 'transform fields', value: { ...adapter, transforms: [{ from: 1, to: 'change-spec', mode: 'format' }] }, expected: '成果物変換には文字列のfrom・to・modeが必要です' },
+    { name: 'blank transform endpoints', value: { ...adapter, transforms: [{ from: '', to: ' ', mode: 'path' }] }, expected: '成果物変換には文字列のfrom・to・modeが必要です' },
     { name: 'permissions', value: { ...adapter, requiredPermissions: ['filesystem-read', 'shell'] }, expected: 'requiredPermissionsに不正な値があります' },
     { name: 'certification', value: { ...adapter, certification: 'certified' }, expected: 'adapter.certificationはobjectで指定してください' },
     { name: 'tests string', value: { ...adapter, certification: { ...adapter.certification, tests: 'success' } }, expected: 'certification.testsは文字列の配列で指定してください' },
