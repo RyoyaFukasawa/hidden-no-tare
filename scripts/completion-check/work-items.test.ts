@@ -75,7 +75,7 @@ test('unclosed fences and comments fail', () => {
   for (const suffix of ['\n```\n', '\n<!--']) assert.ok(check(valid + suffix).errors.length);
 });
 test('unrelated docs are not tickets', () => {
-  for (const path of ['workflow/docs/templates/ticket.md', 'docs/adr/0001-test.md', 'docs/superpowers/specs/design.md', '.scratch/invitation/spec.md', '.scratch/invitation/issues/01.md', 'docs/superpowers/plans/issues/01.md', 'docs/archive/change/spec.md']) {
+  for (const path of ['docs/templates/ticket.md', 'docs/adr/0001-test.md', 'docs/superpowers/specs/design.md', '.scratch/invitation/spec.md', '.scratch/invitation/issues/01.md', 'docs/superpowers/plans/issues/01.md', 'docs/archive/change/spec.md']) {
     assert.deepEqual(check('not a ticket', path), { errors: [], count: 0 });
   }
 });
@@ -89,12 +89,12 @@ test('invalid UTF8 reports error', () => {
   assert.equal(result.count, 1);
   assert.ok(result.errors.length);
 });
-test('CLI targets repository parent regardless of cwd, sets exit code, never rewrites', () => {
+test('CLI targets repository root regardless of cwd, sets exit code, never rewrites', () => {
   const root = mkdtempSync(join(tmpdir(), 'workflow-cli-'));
   try {
-    const scriptDir = join(root, 'workflow/scripts/completion-check');
+    const scriptDir = join(root, 'scripts/completion-check');
     mkdirSync(scriptDir, { recursive: true });
-    writeFileSync(join(root, 'workflow/package.json'), '{"type":"module"}');
+    writeFileSync(join(root, 'package.json'), '{"type":"module"}');
     const script = join(scriptDir, 'check-work-items.ts');
     cpSync(fileURLToPath(new URL('./check-work-items.ts', import.meta.url)), script);
     cpSync(fileURLToPath(new URL('./completion.ts', import.meta.url)), join(scriptDir, 'completion.ts'));

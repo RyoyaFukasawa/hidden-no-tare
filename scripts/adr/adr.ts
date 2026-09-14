@@ -5,8 +5,7 @@ import { fileURLToPath } from 'node:url';
 type Status = 'Accepted' | 'Superseded' | 'Deprecated';
 type Adr = { id: string; file: string; title: string; status: Status; supersedes: string[] };
 
-// このリポジトリではworkflow/にひな形を一時配置している。
-const directory = fileURLToPath(new URL('../../../docs/adr/', import.meta.url));
+const directory = fileURLToPath(new URL('../../docs/adr/', import.meta.url));
 
 function fail(message: string): never { throw new Error('ADR: ' + message); }
 function read(path: string): string {

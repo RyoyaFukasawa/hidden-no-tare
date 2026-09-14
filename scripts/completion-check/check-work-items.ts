@@ -116,7 +116,7 @@ export function checkRepository(root: string): { errors: string[]; count: number
   return { errors, count };
 }
 
-export const projectRoot = fileURLToPath(new URL('../../../', import.meta.url));
+export const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {

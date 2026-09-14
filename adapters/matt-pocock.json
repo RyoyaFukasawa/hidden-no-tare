@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "matt-pocock-engineering",
+  "workflow": {
+    "name": "Matt Pocock engineering flow",
+    "repository": "https://github.com/mattpocock/skills",
+    "commit": "d574778"
+  },
+  "stages": ["grill-with-docs", "to-spec", "to-tickets", "implement", "tdd", "code-review"],
+  "transforms": [
+    { "from": "CONTEXT.md and ADR output", "to": "docs/product and docs/adr", "mode": "format" },
+    { "from": "spec output", "to": "docs/templates/change-spec.md", "mode": "format" },
+    { "from": "ticket output", "to": "docs/archive/<change>/issues", "mode": "path" },
+    { "from": "skill stages", "to": "prepare/finalize lifecycle", "mode": "lifecycle" }
+  ],
+  "requiredPermissions": ["filesystem-read", "filesystem-write"],
+  "certification": {
+    "status": "candidate",
+    "contractVersion": 1,
+    "tests": []
+  }
+}

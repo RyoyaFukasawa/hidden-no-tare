@@ -8,9 +8,15 @@
   },
   "scripts": {
     "check": "node scripts/completion-check/check-work-items.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "node --test scripts/completion-check/work-items.test.ts scripts/adr/adr.test.ts scripts/docs-check/docs-check.test.ts",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "test": "node --test scripts/completion-check/work-items.test.ts scripts/adr/adr.test.ts scripts/docs-check/docs-check.test.ts scripts/workflow/contract.test.ts",
     "verify": "node scripts/verify.ts",
+    "verify:contract": "node scripts/workflow/check-contract.ts && node scripts/completion-check/check-work-items.ts && node scripts/adr/check.ts && node scripts/docs-check/check.ts markdown && node scripts/docs-check/check.ts links",
+    "verify:project": "node scripts/workflow/verify-project.ts",
+    "workflow:prepare": "node scripts/workflow/prepare.ts",
+    "workflow:finalize": "node scripts/workflow/finalize.ts",
+    "workflow:inspect-skill": "node scripts/workflow/inspect-skill.ts",
+    "workflow:diagnose": "node scripts/workflow/diagnose.ts",
     "adr:generate": "node scripts/adr/generate.ts",
     "adr:check": "node scripts/adr/check.ts",
     "lint:md": "node scripts/docs-check/check.ts markdown",
@@ -21,5 +27,8 @@
     "@types/node": "^24.0.0",
     "typescript": "~5.9.3",
     "markdownlint-cli2": "0.23.2"
+  },
+  "overrides": {
+    "smol-toml": "1.8.0"
   }
 }

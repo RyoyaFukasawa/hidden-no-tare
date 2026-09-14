@@ -1,4 +1,4 @@
-# 開発フローと文書管理
+# 開発フローと文書管理（導入前メモ）
 
 決定日: 2026-09-14
 
@@ -215,7 +215,7 @@ Markdownの書式は`markdownlint-cli2`、リンク切れは`lychee`を使用し
 
 ## 検証の分担
 
-チケットの完了ガードはTypeScriptで実装し、テンプレート・規約・スクリプト・テストを`workflow/`に集約した。ルートの`AGENTS.md`は`workflow/AGENTS.md`への案内にする。運用の指示は[AGENTS.md](AGENTS.md)に記載し、ルート`AGENTS.md`から参照する。`npm --prefix workflow run verify`がworkflowの型チェック・回帰テストと`docs/archive/<change>/issues/**/*.md`の完了チケット検証とADR検証を実行する。GitHub Actionsの設定ファイルも追加済みだが、リモート未設定のためCI上の実行確認とマージ必須チェックの設定は未実施。以下のうち、アプリの検証は引き続き導入予定。文書チェックの設定は追加済みで、依存導入と実行確認が残っている。
+チケットの完了ガードはTypeScriptで実装し、テンプレート・規約・スクリプト・テストを`workflow/`に集約した。ルートの`AGENTS.md`は`workflow/AGENTS.md`への案内にする。運用の指示は[AGENTS.md](../../../AGENTS.md)に記載し、ルート`AGENTS.md`から参照する。`npm --prefix workflow run verify`がworkflowの型チェック・回帰テストと`docs/archive/<change>/issues/**/*.md`の完了チケット検証とADR検証を実行する。GitHub Actionsの設定ファイルも追加済みだが、リモート未設定のためCI上の実行確認とマージ必須チェックの設定は未実施。以下のうち、アプリの検証は引き続き導入予定。文書チェックの設定は追加済みで、依存導入と実行確認が残っている。
 
 - **機械:** lint・型チェック・テスト・ビルド、文書の形式・内部リンク・ID重複などを検証する。検証の入口を`verify`にまとめ、CIでも実行する。
 - **AI:** 検証の実行と修正、仕様の抜け、文書の重複、コードと文書の矛盾を確認する。

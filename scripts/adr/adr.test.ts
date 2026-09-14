@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 function fixture(t: { after: (fn: () => void) => void }) {
   const root = mkdtempSync(join(tmpdir(), 'adr-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const scripts = join(root, 'workflow/scripts/adr');
+  const scripts = join(root, 'scripts/adr');
   mkdirSync(scripts, { recursive: true });
   cpSync(new URL('./', import.meta.url), scripts, { recursive: true });
   const dir = join(root, 'docs/adr');

@@ -2,6 +2,21 @@
 
 パスとコマンドは、アプリのリポジトリルートを基準とする。
 
+## 交換可能な開発ワークフロー
+
+- 開発手順には、その時点で選択した外部SKILLを使用してよい。外部SKILLより
+  [現行仕様](docs/product/exchangeable-development-workflow.md)、プロジェクトの
+  テンプレート、`workflow.config.json`、検証CLIを優先する。
+- 変更開始時は`npm run workflow:prepare -- <change-id> <summary> <workflow> <commit> <adapter>`で
+  作業マニフェストを作る。未分類の変更は`researching`として調査と試作だけを行う。
+- 外部SKILL導入前に、出所・ライセンス・固定コミット・権限を確認し、
+  `npm run workflow:inspect-skill -- <directory>`の指摘をレビューする。
+- アダプターはパス・形式・ライフサイクルの変換だけを担う。意味に関わる不足を
+  創作せず、外部フローへ差し戻す。
+- 機械可読な設定を正本とする。エージェント固有の指示と設定の不一致を放置しない。
+- 既存プロジェクトへの導入前は`npm run workflow:diagnose -- <project>`を実行する。
+  既存ファイルを自動マージまたは上書きせず、提案差分を利用者が承認してから適用する。
+
 ## 文書・テンプレート
 
 現行仕様・関連する設計判断を先に読む。`docs/archive/`は過去の経緯が必要な場合だけ検索し、現在の仕様として扱わない。

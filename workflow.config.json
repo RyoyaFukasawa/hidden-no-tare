@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "exceptionDefaultDays": 7,
+  "exceptionMaximumDays": 30,
+  "additionalHighRiskCategories": [],
+  "projectChecks": [
+    {
+      "name": "template-typecheck-and-tests",
+      "command": "node",
+      "args": ["scripts/verify-project-self.ts"]
+    }
+  ]
+}
