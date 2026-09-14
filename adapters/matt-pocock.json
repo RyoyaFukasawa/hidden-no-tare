@@ -6,7 +6,7 @@
     "repository": "https://github.com/mattpocock/skills",
     "commit": "d574778f94cf620fcc8ce741584093bc650a61d3"
   },
-  "stages": ["grill-with-docs", "to-spec", "to-tickets", "implement", "tdd", "code-review"],
+  "stages": ["grill-with-docs", "grilling", "domain-modeling", "to-spec", "to-tickets", "implement", "tdd", "code-review"],
   "transforms": [
     { "from": "CONTEXT.md and ADR output", "to": "docs/product and docs/adr", "mode": "format" },
     { "from": "spec output", "to": "docs/templates/change-spec.md", "mode": "format" },

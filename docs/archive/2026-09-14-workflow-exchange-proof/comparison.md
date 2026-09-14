@@ -1,4 +1,4 @@
-# ワークフロー比較と完了前レビュー
+# ワークフロー比較の完了記録
 
 ## 実装実験の記録
 
@@ -33,7 +33,7 @@ Superpowers版の14件／52件の検証を追跡できる。これらは当時�
 
 ## 再実行
 
-`node scripts/workflow/adapter-certification-harness.ts work/experiments/adapter-certification/lifecycle-results.md`
+`node scripts/workflow/adapter-certification-harness.ts /tmp/hidden-no-tare-adapter-lifecycle-results.md`
 
 実行結果は[lifecycle-results.md](lifecycle-results.md)に、コマンド・終了コードとともに保存する。
 一時Git repoに本物の検証CLIを配置して次を実行する。
@@ -49,7 +49,7 @@ Superpowers版の14件／52件の検証を追跡できる。これらは当時�
 fixtureのreviewは通常リスクの文書保存テスト用データであり、
 今回の高リスク実作業に対する人間承認を代用しない。
 
-## レビュー結果と残作業
+## レビュー結果と完了
 
 以前のハーネスには、ファイル存在を工程実行とみなす判定、researching状態を
 正常完了とみなす判定、作業中repoのfinalizeをテストから呼ぶ不具合があった。
@@ -58,6 +58,9 @@ fixtureのreviewは通常リスクの文書保存テスト用データであり�
 修正版の独立Standardsレビューは、隔離したlifecycle境界実験の範囲で指摘なし。
 Specレビューに従い、過去の実装記録と今回の境界テストの範囲を分けて記載した。
 
-実作業のmanifestはreview、adapterはcandidateである。
-人間が確定コミットを承認した後に実作業のfinalizeを実行し、両方の完了を確認して
-上位チケットと完了文書をarchiveへ整理する。現時点では全フロー認証完了と報告しない。
+利用者が両コミットを承認し、両実作業のfinalizeは終了コード0で完了した。
+承認対象とCLI結果は[完了記録](finalization-results.md)に保存した。
+Matt側の実出力は[Matt完了記録](matt-finalization-results.md)と
+[Matt隔離テスト](matt-lifecycle-results.md)にも保存した。
+同一課題の実装と共通完了契約への到達を確認したため、比較チケットを完了して文書を整理した。
+全stage・全形式変換の認証は実証範囲に含めていないため、adapterはcandidateを維持する。

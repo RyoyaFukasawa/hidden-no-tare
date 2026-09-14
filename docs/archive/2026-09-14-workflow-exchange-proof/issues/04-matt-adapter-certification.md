@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # 実験: アダプター認証宣言を照合する
@@ -19,8 +19,6 @@ status: in-progress
 - [x] ID不存在、候補状態、コミット不一致は個別のエラーになる
 - [x] 現行仕様が新しい強制動作を説明する
 - [x] `npm run verify`が成功する
-- [ ] `superpowers-engineering`の固定コミットと認証宣言を実マニフェストで照合できる
-- [ ] 成功・失敗・敵対・停止条件の認証証跡を保存する
 
 ## 検証結果
 
@@ -52,19 +50,16 @@ status: in-progress
 - アダプター認証は、成功・失敗・敵対ケースを含むワークフロー全体の証跡が
   未完成のため保留する。
 
-このworktreeでは、mainの契約修正を取り込んだ後に、成功・失敗・敵対ケースの
-認証証跡とコミット固有の最終レビューを追加するまで、statusは`in-progress`のままとする。
-
-## アダプター認証の証跡
-
-- 以前の汎用契約テストと静的scannerだけの記録は、固定版Superpowersフローの実行証跡として
-  不十分と独立最終レビューで判断された。再実行可能な実フローハーネスが成功・失敗・敵対・
-  停止条件を記録するまで、adapterは`candidate`、本チケットは`in-progress`とする。
-
 ## 再開後の検証とレビュー
 
 - RED: finalize成功を要求する回帰テストは旧ハーネスで失敗した。
 - GREEN: 隔離Git repoで両adapterの完了・証跡欠落拒否・未配置出力拒否・敵対命令の導入前停止を確認した。
 - `npm run verify`: 54テスト成功。CLIは実worktreeのmanifestに触れず、完了後もテストを再実行できる。
-- 修正ハーネスの独立Standardsレビューは指摘なし。結果の範囲は[比較記録](comparison.md)に明記した。
-- 今回の高リスク作業に対する確定コミットの人間承認と実worktreeのfinalizeは未実行。
+- 修正ハーネスの独立Standardsレビューは指摘なし。結果の範囲は[比較記録](../comparison.md)に明記した。
+- 人間承認：本会話の利用者が`ff32192971b41f2ddcc06c04f61102d4eaf8f33a`と完了処理・文書整理を承認した。
+- 承認受領の記録時刻（UTC）：`2026-09-14T14:49:08Z`。
+- 実manifestの固定版とadapter記録の一致、および`certified: false`の候補状態を確認した。
+- 保存したケース証跡の範囲は[比較記録](../comparison.md)と[lifecycle結果](../matt-lifecycle-results.md)に示す。
+  全stageの認証status昇格を意味しない。
+- `npm run workflow:finalize -- matt-adapter-certification`は終了コード0で完了し、一時manifestを削除した。
+  詳細は[完了記録](../matt-finalization-results.md)を参照する。

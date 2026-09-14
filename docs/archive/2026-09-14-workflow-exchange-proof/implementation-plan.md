@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24, TypeScript 5.9, built-in `node:test`.
 
-**Spec:** `work/experiments/adapter-certification/change-spec.md`
+**Spec:** `docs/archive/2026-09-14-workflow-exchange-proof/change-spec.md`
 
 ## Global Constraints
 
@@ -28,7 +28,7 @@
 - Modify: `scripts/workflow/check-contract.ts`
 - Modify: `scripts/workflow/contract.test.ts`
 - Modify: `docs/product/exchangeable-development-workflow.md`
-- Modify: `work/experiments/adapter-certification/issue.md`
+- Modify: `docs/archive/2026-09-14-workflow-exchange-proof/issues/04-superpowers-adapter-certification.md`
 
 **Interfaces:**
 
