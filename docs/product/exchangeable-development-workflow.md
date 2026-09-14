@@ -68,6 +68,12 @@
 認証済みとは、指定バージョンとの接続、変換、停止条件、完了契約を正常系、
 失敗系、敵対的ケースで確認済みという意味である。
 
+作業マニフェストが`workflow.certified: true`を宣言する場合、契約検証は
+`adapters/*.json`の有効な記録から指定IDを一度だけ読み、その記録が
+`certified`状態であり、外部ワークフローの固定コミットが
+`workflow.version`と一致することを要求する。ID不存在、候補状態、固定コミット
+不一致は個別にエラーとする。`certified: false`はアダプター記録なしでも利用できる。
+
 初期の認証対象はMatt Pocock版の`grill-with-docs`、`to-spec`、`to-tickets`、
 `implement`、`tdd`、`code-review`からなるフローとする。比較対象には
 `superpowers`を使い、同一課題を独立したGit worktreeで実行して交換可能性を確認する。

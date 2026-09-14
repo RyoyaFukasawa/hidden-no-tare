@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkConfig, checkManifest, mandatoryHighRiskCategories, requiredArtifacts, type WorkflowConfig, type WorkflowManifest } from './contract.ts';
-import { checkAdapter, type AdapterManifest } from './adapters.ts';
-import { findSecrets } from './check-contract.ts';
+import { checkAdapter, checkCertificationClaim, type AdapterManifest } from './adapters.ts';
+import { checkWorkflowRepository, findSecrets } from './check-contract.ts';
 import { createManifest } from './prepare.ts';
 import { inspectSkill } from './inspect-skill.ts';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnose } from './diagnose.ts';
@@ -50,6 +51,10 @@ test('設定は例外最大30日と重複しないproject checkを強制する',
   assert.ok(checkConfig({ ...config, exceptionMaximumDays: 31 }).length);
   assert.ok(checkConfig({ ...config, projectChecks: [{ name: 'test', command: 'a', args: [] }, { name: 'test', command: 'b', args: [] }] }).length);
 });
+test('認証宣言はbooleanでなければならない', () => {
+  const malformed = { ...complete, workflow: { ...complete.workflow, certified: 'false' } } as unknown as WorkflowManifest;
+  assert.ok(checkManifest(malformed, config).includes('workflow.certifiedはbooleanで指定してください'));
+});
 test('秘密情報らしき値を検出する', () => {
   assert.deepEqual(findSecrets('ordinary evidence'), []);
   assert.ok(findSecrets('-----BEGIN PRIVATE KEY-----').includes('秘密鍵'));
@@ -64,6 +69,86 @@ const adapter: AdapterManifest = {
 test('認証済みadapterは正常・失敗・敵対テストを要求する', () => {
   assert.deepEqual(checkAdapter(adapter), []);
   assert.ok(checkAdapter({ ...adapter, certification: { ...adapter.certification, tests: ['success'] } }).some(error => error.includes('hostile')));
+  const malformed = { ...adapter, certification: { ...adapter.certification, status: 'unknown' } } as unknown as AdapterManifest;
+  assert.ok(checkAdapter(malformed).includes('adapterのcertification.statusはcandidateまたはcertifiedにしてください'));
+});
+test('認証宣言はadapter記録と固定commitを照合する', () => {
+  const cases: { name: string; manifest: WorkflowManifest; adapters: AdapterManifest[]; expected: string[] }[] = [
+    {
+      name: '未認証宣言はadapter記録なしで許可する',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: 'missing', certified: false } },
+      adapters: [],
+      expected: [],
+    },
+    {
+      name: '認証済み宣言でadapterが見つからない',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: 'missing', certified: true } },
+      adapters: [],
+      expected: ['認証済みアダプターがありません: missing'],
+    },
+    {
+      name: '不正な認証宣言はadapter照合を迂回できない',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: 'missing', certified: 0 as unknown as boolean } },
+      adapters: [],
+      expected: ['認証済みアダプターがありません: missing'],
+    },
+    {
+      name: '認証済み宣言でadapterが候補状態である',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: adapter.id, certified: true } },
+      adapters: [{ ...adapter, certification: { ...adapter.certification, status: 'candidate' } }],
+      expected: ['アダプターは候補状態です: sample'],
+    },
+    {
+      name: '認証済み宣言で固定commitが一致しない',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: adapter.id, version: '1234567', certified: true } },
+      adapters: [adapter],
+      expected: ['アダプターの固定commitが一致しません: sample'],
+    },
+    {
+      name: '認証済み宣言で認証済みadapterと固定commitが一致する',
+      manifest: { ...complete, workflow: { ...complete.workflow, adapter: adapter.id, version: adapter.workflow.commit, certified: true } },
+      adapters: [adapter],
+      expected: [],
+    },
+  ];
+  for (const { name, manifest, adapters, expected } of cases) {
+    assert.deepEqual(checkCertificationClaim(manifest, adapters), expected, name);
+  }
+});
+test('リポジトリ検証は認証宣言の照合を適用する', t => {
+  const root = mkdtempSync(join(tmpdir(), 'workflow-certification-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.workflow', 'changes'), { recursive: true });
+  mkdirSync(join(root, 'adapters'), { recursive: true });
+  writeFileSync(join(root, 'workflow.config.json'), JSON.stringify(config));
+  writeFileSync(join(root, 'AGENTS.md'), 'workflow:prepare\nworkflow:inspect-skill\nverify\n');
+  const manifest = (id: string, adapterId: string, version = 'abcdef1'): WorkflowManifest => ({
+    ...complete,
+    id,
+    state: 'researching',
+    workflow: { ...complete.workflow, adapter: adapterId, version, certified: true },
+    artifacts: {},
+    checks: [],
+    review: undefined,
+  });
+  writeFileSync(join(root, 'adapters', 'matching.json'), JSON.stringify(adapter));
+  writeFileSync(join(root, 'adapters', 'candidate.json'), JSON.stringify({ ...adapter, id: 'candidate', certification: { ...adapter.certification, status: 'candidate' } }));
+  writeFileSync(join(root, 'adapters', 'invalid.json'), JSON.stringify({ ...adapter, id: 'invalid', certification: { ...adapter.certification, status: 'unknown' } }));
+  writeFileSync(join(root, '.workflow', 'changes', 'fixture-missing.json'), JSON.stringify(manifest('fixture-missing', 'missing')));
+  writeFileSync(join(root, '.workflow', 'changes', 'fixture-matching.json'), JSON.stringify(manifest('fixture-matching', 'sample')));
+  writeFileSync(join(root, '.workflow', 'changes', 'fixture-candidate.json'), JSON.stringify(manifest('fixture-candidate', 'candidate')));
+  writeFileSync(join(root, '.workflow', 'changes', 'fixture-invalid.json'), JSON.stringify(manifest('fixture-invalid', 'invalid')));
+  execFileSync('git', ['init', '--initial-branch=main'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Workflow Test'], { cwd: root });
+  execFileSync('git', ['add', '.'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
+  const errors = checkWorkflowRepository(root);
+  assert.ok(errors.includes('.workflow/changes/fixture-missing.json: 認証済みアダプターがありません: missing'));
+  assert.ok(!errors.some(error => error.includes('.workflow/changes/fixture-matching.json: 認証')));
+  assert.ok(errors.includes('.workflow/changes/fixture-candidate.json: アダプターは候補状態です: candidate'));
+  assert.ok(errors.includes('adapters/invalid.json: adapterのcertification.statusはcandidateまたはcertifiedにしてください'));
+  assert.ok(errors.includes('.workflow/changes/fixture-invalid.json: 認証済みアダプターがありません: invalid'));
 });
 test('敵対的な偽SKILLの破壊命令と秘密アクセスを検出する', t => {
   const directory = mkdtempSync(join(tmpdir(), 'hostile-skill-'));

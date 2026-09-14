@@ -3,7 +3,7 @@ import { existsSync, globSync, lstatSync, readFileSync, realpathSync } from 'nod
 import { isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkConfig, checkManifest } from './contract.ts';
-import { checkAdapter, type AdapterManifest } from './adapters.ts';
+import { checkAdapter, checkCertificationClaim, type AdapterManifest } from './adapters.ts';
 import { loadConfig, loadManifest } from './io.ts';
 
 const secretPatterns: [string, RegExp][] = [
@@ -33,6 +33,15 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
   let head: string | undefined;
   try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); }
   catch { errors.push('GitリポジトリのHEADを取得できません'); }
+  const adapters: AdapterManifest[] = [];
+  for (const file of globSync('adapters/*.json', { cwd: root }).sort()) {
+    try {
+      const adapter = JSON.parse(readFileSync(resolve(root, file), 'utf8')) as AdapterManifest;
+      const adapterErrors = checkAdapter(adapter);
+      errors.push(...adapterErrors.map(message => `${file}: ${message}`));
+      if (!adapterErrors.length) adapters.push(adapter);
+    } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
+  }
   const manifestFiles = globSync('.workflow/changes/*.json', { cwd: root }).sort();
   for (const file of manifestFiles) {
     try {
@@ -42,17 +51,12 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       for (const secret of findSecrets(raw)) errors.push(`${file}: ${secret}らしき値を保存しないでください`);
       const manifest = loadManifest(absolute);
       errors.push(...checkManifest(manifest, config, now, head).map(message => `${file}: ${message}`));
+      errors.push(...checkCertificationClaim(manifest, adapters).map(message => `${file}: ${message}`));
       for (const [kind, artifact] of Object.entries(manifest.artifacts)) {
         if (!artifact) continue;
         if (isAbsolute(artifact) || artifact.split(/[\\/]/).includes('..')) errors.push(`${file}: ${kind}のパスはリポジトリ相対にしてください`);
         else if (!existsSync(resolve(root, artifact))) errors.push(`${file}: ${kind}が存在しません: ${artifact}`);
       }
-    } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
-  }
-  for (const file of globSync('adapters/*.json', { cwd: root }).sort()) {
-    try {
-      const adapter = JSON.parse(readFileSync(resolve(root, file), 'utf8')) as AdapterManifest;
-      errors.push(...checkAdapter(adapter).map(message => `${file}: ${message}`));
     } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
   }
   for (const file of globSync(['docs/**/*.md', '.workflow/**/*.json'], { cwd: root }).sort()) {
