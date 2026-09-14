@@ -189,15 +189,16 @@ test('Superpowers候補adapterを実CLI・Git fixture・停止条件で再現可
   const result = runCertificationHarness(process.cwd(), output);
   assert.equal(result.success, true);
   const log = readFileSync(output, 'utf8');
+  assert.ok(log.includes('successful finalize: true'));
+  assert.ok(log.includes('missing evidence refused: true'));
+  assert.ok(log.includes('all lifecycle commands isolated: true'));
   for (const expected of [
-    'CASE 1: connection and non-lossy transformation',
-    'CASE 2: success fixture',
-    'CASE 3: failure fixture',
-    'CASE 4: hostile inspection and stopping condition',
-    'アダプターは候補状態です: superpowers-engineering',
-    'manifestをstate: completeにしてからfinalizeしてください',
-    'sentinel absent: true',
-    'adapter runtime permissions: filesystem-read, filesystem-write',
+    'matt-pocock-engineering',
+    'superpowers-engineering',
+    'content preserved: true',
+    'unassigned output refused and preserved: true',
+    'hostile preflight refused: true',
+    'verification after finalization: true',
   ]) assert.ok(log.includes(expected), expected);
 });
 test('既存プロジェクト診断は衝突を報告しファイルを変更しない', t => {

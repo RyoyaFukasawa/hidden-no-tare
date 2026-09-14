@@ -17,17 +17,16 @@ status: in-progress
 
 - [x] 同じ入力課題を二つのGit worktreeへ用意する
 - [ ] Matt Pocock版フローで課題を完了する
-- [x] superpowersで同じ課題を完了する
+- [ ] superpowersで同じ課題を完了する
 - [ ] 両方の成果物と完了判定を比較して差を記録する
 
 ## 検証結果
 
 - 両worktreeは`bda2223`から作成し、変更仕様とチケットのSHA-256が一致した。
 - Matt版は`ef242ac`を作成し、`npm run verify`で55テストが成功した。
-- superpowers版は`4a1205a`で固定版アダプターの成功・失敗・敵対・停止条件を記録し、
-  `npm run verify`で53テストが成功した。
-- Superpowers版の完了チケットと認証証跡は
-  `docs/archive/2026-09-14-superpowers-adapter-certification/`へ保存した。高リスク
-  manifestのfinalizeだけは、承認対象コミットに対する人間承認を待っている。
-- 比較記録は
-  `docs/archive/2026-09-14-superpowers-adapter-certification/comparison.md`に保存した。
+- superpowers版は`6f7134a`を作成し、`npm run verify`で52テストが成功した。
+- 両方で実装と`verify`成功までは確認したが、作業マニフェストとチケットが
+  完了状態へ到達していないため、交換可能性の実証と認証は未完了である。
+- 中間比較は`work/experiments/adapter-certification/comparison.md`に保存した。
+
+- 隔離した両adapterの完了・拒否テストを追加した。実作業の人間承認とfinalizeは未完了。

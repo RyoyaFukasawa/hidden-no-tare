@@ -35,30 +35,30 @@
 - Consumes: `WorkflowManifest.workflow.adapter`, `WorkflowManifest.workflow.version`, and `WorkflowManifest.workflow.certified`.
 - Produces: `checkCertificationClaim(manifest, adapters): string[]` or an equivalently named pure public function.
 
-- [ ] **Step 1: Write failing behavior tests**
+- [x] **Step 1: Write failing behavior tests**
 
 Add table-driven tests with literal expected error fragments for missing adapter, candidate adapter, and commit mismatch. Add passing cases for `certified: false` and a matching certified adapter.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run `node --test scripts/workflow/contract.test.ts`. Confirm failure is caused by the missing certification-claim behavior.
 
-- [ ] **Step 3: Implement the minimal pure rule**
+- [x] **Step 3: Implement the minimal pure rule**
 
 Only enforce adapter lookup and commit equality when the manifest claims `certified: true`. Return distinct Japanese errors for each failure mode.
 
-- [ ] **Step 4: Connect repository validation**
+- [x] **Step 4: Connect repository validation**
 
 Load and validate `adapters/*.json` once, retain valid parsed adapters, and apply the pure certification-claim rule to every work manifest.
 
-- [ ] **Step 5: Verify GREEN and regressions**
+- [x] **Step 5: Verify GREEN and regressions**
 
 Run `node --test scripts/workflow/contract.test.ts`, then `npm run verify`.
 
-- [ ] **Step 6: Update durable and working documentation**
+- [x] **Step 6: Update durable and working documentation**
 
 Document the enforced relationship in the current product spec. Check every satisfied acceptance criterion in the experiment ticket and record the exact verification commands and results.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit all branch changes with `feat: verify workflow certification claims`.
