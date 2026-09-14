@@ -4,7 +4,7 @@
   "workflow": {
     "name": "Matt Pocock engineering flow",
     "repository": "https://github.com/mattpocock/skills",
-    "commit": "d574778"
+    "commit": "d574778f94cf620fcc8ce741584093bc650a61d3"
   },
   "stages": ["grill-with-docs", "to-spec", "to-tickets", "implement", "tdd", "code-review"],
   "transforms": [

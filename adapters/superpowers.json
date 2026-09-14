@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "superpowers-engineering",
+  "workflow": {
+    "name": "Superpowers engineering flow",
+    "repository": "https://github.com/obra/superpowers",
+    "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
+  },
+  "stages": [
+    "brainstorming",
+    "writing-plans",
+    "using-git-worktrees",
+    "subagent-driven-development",
+    "test-driven-development",
+    "requesting-code-review",
+    "verification-before-completion"
+  ],
+  "transforms": [
+    { "from": "design and plan output", "to": "project change specification", "mode": "format" },
+    { "from": "plan tasks", "to": "project ticket", "mode": "format" },
+    { "from": "skill workspace", "to": "prepare/finalize lifecycle", "mode": "lifecycle" }
+  ],
+  "requiredPermissions": ["filesystem-read", "filesystem-write"],
+  "certification": {
+    "status": "candidate",
+    "contractVersion": 1,
+    "tests": []
+  }
+}
