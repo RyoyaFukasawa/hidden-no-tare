@@ -28,7 +28,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     const result = spawnSync(command, args, { cwd: root, input: files.join('\n') + '\n', encoding: 'utf8' });
     if (result.stdout) process.stdout.write(result.stdout);
     if (result.stderr) process.stderr.write(result.stderr);
-    if (result.error) throw result.error;
+    if (result.error) {
+      if (command === 'lychee' && 'code' in result.error && result.error.code === 'ENOENT') {
+        throw new Error('lycheeが見つかりません。lychee 0.24.2を導入してPATHへ追加してください。README.mdの「初期セットアップ」を参照してください。');
+      }
+      throw result.error;
+    }
     process.exitCode = result.status ?? 1;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

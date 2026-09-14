@@ -7,14 +7,17 @@
 - 開発手順には、その時点で選択した外部SKILLを使用してよい。外部SKILLより
   [現行仕様](docs/product/exchangeable-development-workflow.md)、プロジェクトの
   テンプレート、`workflow.config.json`、検証CLIを優先する。
-- 変更開始時は`npm run workflow:prepare -- <change-id> <summary> <workflow> <commit> <adapter>`で
+- 変更開始時は`npm run workflow:prepare -- <change-id> <summary>`で
   作業マニフェストを作る。未分類の変更は`researching`として調査と試作だけを行う。
+- 外部SKILLの登録・認証・同梱例は任意とし、通常の`verify`の条件にしない。
+  登録を使う場合は`npm run verify:registration`、同梱例の実験は`npm run verify:examples`で別途検証する。
 - 外部SKILL導入前に、出所・ライセンス・固定コミット・権限を確認し、
   `npm run workflow:inspect-skill -- <directory>`の指摘をレビューする。
 - アダプターはパス・形式・ライフサイクルの変換だけを担う。意味に関わる不足を
   創作せず、外部フローへ差し戻す。
 - 機械可読な設定を正本とする。エージェント固有の指示と設定の不一致を放置しない。
 - 既存プロジェクトへの導入前は`npm run workflow:diagnose -- <project>`を実行する。
+  この診断は6ファイルの比較だけであり、移行の安全性を保証しない。新規リポジトリへの導入を主対象とする。
   既存ファイルを自動マージまたは上書きせず、提案差分を利用者が承認してから適用する。
 
 ## 文書・テンプレート
@@ -44,6 +47,11 @@
 ## 完了条件・文書整理
 
 使用するskillにかかわらず、[完了判定の契約](scripts/completion-check/completion.ts)を満たすこと。skill自身の完了報告だけで完了と判断しない。
+
+- 検証・独立レビュー・文書整理後のコミットを承認対象にする。高リスク変更は人間がそのSHAを承認する。
+- 承認後に更新するのは未追跡の一時マニフェストだけとする。コード・文書の追加変更には再承認が必要。
+- 完了時は通常のGit ignore対象と検証済み未追跡マニフェスト以外の未コミット変更を拒否する。
+  一時マニフェストはコミットしない。並行作業は別worktreeに分ける。
 
 - 受け入れ条件を検証し、根拠をチケットに記録する。満たした項目だけチェックし、レビュー後に`done`へ変更する。
 - 検証のために条件を削除・緩和しない。人間の確認が必要な条件は、確認を受けるまで未チェックにする。

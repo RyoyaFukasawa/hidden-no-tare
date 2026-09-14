@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadManifest } from './io.ts';
 import { spawnSync } from 'node:child_process';
+import { checkWorkflowRepository } from './check-contract.ts';
+import { captureCompletionSnapshot } from './completion-snapshot.ts';
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
@@ -15,6 +17,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
       const manifest = loadManifest(path);
       if (manifest.state !== 'complete') { console.error('manifestをstate: completeにしてからfinalizeしてください'); process.exitCode = 1; }
       else {
+        const checkSnapshot = captureCompletionSnapshot(projectRoot);
         const contract = spawnSync('npm', ['run', 'verify:contract'], { cwd: projectRoot, stdio: 'inherit', shell: false });
         const project = contract.status === 0
           ? spawnSync('npm', ['run', 'verify:project'], { cwd: projectRoot, stdio: 'inherit', shell: false })
@@ -24,8 +27,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         const status = contract.status !== 0 ? contract.status ?? 1 : project?.status ?? 1;
         if (status !== 0) process.exitCode = status;
         else {
-          rmSync(path);
-          console.log(`完了契約を確認し、一時manifestを削除しました: ${id}`);
+          const errors = [...checkSnapshot(), ...checkWorkflowRepository(projectRoot)];
+          if (errors.length) {
+            for (const error of errors) console.error('ERROR ' + error);
+            process.exitCode = 1;
+          } else {
+            rmSync(path);
+            console.log(`完了契約を確認し、一時manifestを削除しました: ${id}`);
+          }
         }
       }
     }

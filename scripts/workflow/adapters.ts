@@ -15,8 +15,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function checkCertificationClaim(manifest: WorkflowManifest, adapters: AdapterManifest[]): string[] {
-  if (manifest.workflow.certified === false) return [];
-  const adapter = adapters.find(candidate => candidate.id === manifest.workflow.adapter);
+  if (!manifest.workflow || manifest.workflow.certified === false) return [];
+  const workflow = manifest.workflow;
+  const adapter = adapters.find(candidate => candidate.id === workflow.adapter);
   if (!adapter) return [`認証済みアダプターがありません: ${manifest.workflow.adapter}`];
   if (adapter.certification.status !== 'certified') return [`アダプターは候補状態です: ${adapter.id}`];
   if (adapter.workflow.commit !== manifest.workflow.version) return [`アダプターの固定commitが一致しません: ${adapter.id}`];

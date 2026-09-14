@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { AdapterManifest } from './adapters.ts';
-import type { WorkflowManifest } from './contract.ts';
+import type { AdapterManifest } from '../../scripts/workflow/adapters.ts';
+import type { WorkflowManifest } from '../../scripts/workflow/contract.ts';
 
 function run(root: string, command: string, args: string[]) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', shell: false, timeout: 60000 });
@@ -40,6 +40,7 @@ export function runCertificationHarness(projectRoot: string, outputPath: string)
       cpSync(join(root, 'scripts'), join(fixture, 'scripts'), { recursive: true });
       cpSync(join(root, 'docs'), join(fixture, 'docs'), { recursive: true });
       cpSync(join(root, 'AGENTS.md'), join(fixture, 'AGENTS.md'));
+      writeFileSync(join(fixture, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\n');
       cpSync(join(root, 'package.json'), join(fixture, 'package.json'));
       symlinkSync(realpathSync(join(root, 'node_modules')), join(fixture, 'node_modules'), 'dir');
       mkdirSync(join(fixture, 'adapters'), { recursive: true });
@@ -101,6 +102,13 @@ export function runCertificationHarness(projectRoot: string, outputPath: string)
       const unassigned = record('unassigned output', process.execPath, ['scripts/workflow/finalize.ts', 'boundary']);
       check('unassigned output refused and preserved', unassigned.status === 1 && existsSync(manifestPath) && existsSync(join(fixture, 'external/unassigned.md')));
       renameSync(join(fixture, 'external/unassigned.md'), join(fixture, 'rejected-output.md'));
+      // Resolving an output changes the reviewed tree: commit and renew the fixture-only review.
+      for (const args of [['add', 'rejected-output.md'], ['commit', '-m', 'test: preserve rejected output']]) {
+        const result = run(fixture, 'git', args);
+        if (result.status !== 0) throw new Error(result.output);
+      }
+      manifest.review.commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture, encoding: 'utf8' }).trim();
+      save();
       const success = record('complete fixture', process.execPath, ['scripts/workflow/finalize.ts', 'boundary']);
       check('successful finalize', success.status === 0 && success.output.includes('一時manifestを削除') && !existsSync(manifestPath));
       const verify = record('verify after finalize', process.execPath, ['scripts/verify.ts']);

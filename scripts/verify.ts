@@ -1,8 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { checkWorkflowRepository } from './workflow/check-contract.ts';
+import { captureCompletionSnapshot } from './workflow/completion-snapshot.ts';
 
 try {
   const cwd = fileURLToPath(new URL('../', import.meta.url));
+  const checkSnapshot = captureCompletionSnapshot(cwd);
   const commands = [
     ['scripts/workflow/check-contract.ts'],
     ['scripts/completion-check/check-work-items.ts'],
@@ -16,6 +19,8 @@ try {
     if (result.error) throw result.error;
     if (result.status !== 0) process.exit(result.status ?? 1);
   }
+  const errors = [...checkSnapshot(), ...checkWorkflowRepository(cwd)];
+  if (errors.length) throw new Error(errors.join('\n'));
   console.log('Verification passed (contract, project checks, work items, ADRs and Markdown/links).');
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

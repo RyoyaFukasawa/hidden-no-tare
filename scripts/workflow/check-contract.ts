@@ -3,7 +3,6 @@ import { existsSync, globSync, lstatSync, readFileSync, realpathSync } from 'nod
 import { isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkConfig, checkManifest } from './contract.ts';
-import { checkAdapter, checkCertificationClaim, type AdapterManifest } from './adapters.ts';
 import { loadConfig, loadManifest } from './io.ts';
 
 const secretPatterns: [string, RegExp][] = [
@@ -26,28 +25,16 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
   if (!existsSync(agentsPath)) errors.push('AGENTS.mdがありません');
   else {
     const agents = readFileSync(agentsPath, 'utf8');
-    for (const command of ['workflow:prepare', 'workflow:inspect-skill', 'verify']) {
+    for (const command of ['workflow:prepare', 'verify']) {
       if (!agents.includes(command)) errors.push(`AGENTS.mdに機械設定への接続指示がありません: ${command}`);
     }
   }
   let head: string | undefined;
   try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); }
   catch { errors.push('GitリポジトリのHEADを取得できません'); }
-  const adapters: AdapterManifest[] = [];
-  for (const file of globSync('adapters/*.json', { cwd: root }).sort()) {
-    try {
-      const adapter = JSON.parse(readFileSync(resolve(root, file), 'utf8'));
-      const adapterErrors = checkAdapter(adapter);
-      errors.push(...adapterErrors.map(message => `${file}: ${message}`));
-      if (!adapterErrors.length) adapters.push(adapter as AdapterManifest);
-    } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
-  }
-  const adapterCounts = new Map<string, number>();
-  for (const adapter of adapters) adapterCounts.set(adapter.id, (adapterCounts.get(adapter.id) ?? 0) + 1);
-  const duplicateAdapterIds = new Set([...adapterCounts].filter(([, count]) => count > 1).map(([id]) => id));
-  for (const id of duplicateAdapterIds) errors.push(`adapter IDが重複しています: ${id}`);
-  const uniqueAdapters = adapters.filter(adapter => !duplicateAdapterIds.has(adapter.id));
   const manifestFiles = globSync('.workflow/changes/*.json', { cwd: root }).sort();
+  let completing = false;
+  const temporaryManifests = new Set<string>();
   for (const file of manifestFiles) {
     try {
       const absolute = resolve(root, file);
@@ -55,14 +42,32 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       const raw = readFileSync(absolute, 'utf8');
       for (const secret of findSecrets(raw)) errors.push(`${file}: ${secret}らしき値を保存しないでください`);
       const manifest = loadManifest(absolute);
-      errors.push(...checkManifest(manifest, config, now, head).map(message => `${file}: ${message}`));
-      errors.push(...checkCertificationClaim(manifest, uniqueAdapters).map(message => `${file}: ${message}`));
+      const findings = checkManifest(manifest, config, now, head);
+      errors.push(...findings.map(message => `${file}: ${message}`));
+      if (file !== `.workflow/changes/${manifest.id}.json`) errors.push(`${file}: ファイル名と変更IDが一致しません`);
+      else if (!findings.length) temporaryManifests.add(file);
+      if (manifest.state === 'complete') completing = true;
       for (const [kind, artifact] of Object.entries(manifest.artifacts)) {
         if (!artifact) continue;
         if (isAbsolute(artifact) || artifact.split(/[\\/]/).includes('..')) errors.push(`${file}: ${kind}のパスはリポジトリ相対にしてください`);
         else if (!existsSync(resolve(root, artifact))) errors.push(`${file}: ${kind}が存在しません: ${artifact}`);
       }
     } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
+  }
+  if (completing) {
+    try {
+      const status = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=none'], { cwd: root, encoding: 'utf8' }).split('\0');
+      for (let index = 0; index < status.length; index++) {
+        const entry = status[index];
+        if (!entry) continue;
+        const kind = entry.slice(0, 2);
+        const file = entry.slice(3);
+        if (kind !== '??' || !temporaryManifests.has(file)) errors.push(`承認後の未コミット変更があります: ${file}`);
+        if (/[RC]/.test(kind)) index++; // porcelain -z includes the original path after a rename/copy.
+      }
+      const tracked = execFileSync('git', ['ls-files', '-z', '--', '.workflow/changes'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+      if (tracked.length) errors.push('一時マニフェストをGit追跡から外し、文書整理後のコミットで再承認してください');
+    } catch { errors.push('完了時のGit作業状態を取得できません'); }
   }
   for (const file of globSync(['docs/**/*.md', '.workflow/**/*.json'], { cwd: root }).sort()) {
     const text = readFileSync(resolve(root, file), 'utf8');

@@ -10,17 +10,40 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnose } from './diagnose.ts';
-import { runCertificationHarness } from './adapter-certification-harness.ts';
+import { checkWorkflowRegistration } from './check-registration.ts';
+import { loadConfig, loadManifest } from './io.ts';
 
 const config: WorkflowConfig = { schemaVersion: 1, exceptionDefaultDays: 7, exceptionMaximumDays: 30, additionalHighRiskCategories: [], projectChecks: [] };
-const complete: WorkflowManifest = {
+const complete = {
   schemaVersion: 1, id: 'add-login', summary: 'ログインを追加する', state: 'complete', risk: 'normal', classificationConfirmed: true,
   traits: { behaviorChanged: true, publicApiChanged: false, architectureDecisionChanged: true, dataMigration: false, highRiskCategories: [] },
   workflow: { name: 'flow', version: 'abc1234', adapter: 'generic', certified: true },
   artifacts: { ticket: 'ticket.md', productSpec: 'product.md', changeSpec: 'change.md', adr: 'adr.md' },
   checks: [{ name: 'test', status: 'passed', evidence: '10 tests passed' }],
   review: { kind: 'agent', approver: 'review-agent', reviewedAt: '2026-09-14T00:00:00Z', commit: 'abc' },
-};
+} satisfies WorkflowManifest;
+
+test('登録なしで変更を開始し完了契約を利用できる', () => {
+  const manifest = createManifest('sample', '概要');
+  assert.equal(manifest.workflow, undefined);
+  assert.deepEqual(checkManifest(manifest, config), []);
+  const { workflow, ...withoutRegistration } = complete;
+  assert.deepEqual(checkManifest(withoutRegistration, config), []);
+});
+
+test('通常の契約検証は任意のアダプター記録を要求しない', t => {
+  const root = mkdtempSync(join(tmpdir(), 'workflow-optional-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'adapters'));
+  writeFileSync(join(root, 'adapters/broken.json'), '{');
+  writeFileSync(join(root, 'workflow.config.json'), JSON.stringify(config));
+  writeFileSync(join(root, 'AGENTS.md'), 'workflow:prepare\nverify\n');
+  execFileSync('git', ['init', '--initial-branch=main'], { cwd: root });
+  execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '--allow-empty', '-m', 'fixture'], { cwd: root });
+  assert.deepEqual(checkWorkflowRepository(root), []);
+  rmSync(join(root, 'adapters'), { recursive: true });
+  assert.deepEqual(checkWorkflowRepository(root), []);
+});
 
 test('変更特性から必要成果物を導出する', () => assert.deepEqual(requiredArtifacts(complete.traits), ['ticket', 'productSpec', 'changeSpec', 'adr']));
 test('通常変更は独立エージェントレビューで完了できる', () => assert.deepEqual(checkManifest(complete, config, new Date('2026-09-14T00:00:00Z'), 'abc'), []));
@@ -28,6 +51,13 @@ test('未分類のまま本実装へ進めないがresearchingは許可する', 
   const manifest = createManifest('investigate-auth', '認証を調査する', 'flow', 'abc1234', 'generic');
   assert.deepEqual(checkManifest(manifest, config), []);
   assert.ok(checkManifest({ ...manifest, state: 'implementing' }, config).some(error => error.includes('researching')));
+});
+test('未確定のリスクと分類確認なしでは実装や完了に進めない', () => {
+  for (const state of ['ready', 'implementing', 'review', 'complete'] as const) {
+    assert.ok(checkManifest({ ...complete, state, risk: null }, config).length, state);
+    assert.ok(checkManifest({ ...complete, state, classificationConfirmed: false }, config).length, state);
+  }
+  assert.ok(checkManifest({ ...complete, traits: { ...complete.traits, highRiskCategories: ['typo'] } }, config).length);
 });
 test('高リスクは人間レビューと一致するHEADが必要', () => {
   const high = { ...complete, risk: 'high' as const, traits: { ...complete.traits, highRiskCategories: [mandatoryHighRiskCategories[0]] } };
@@ -54,12 +84,48 @@ test('設定は例外最大30日と重複しないproject checkを強制する',
 });
 test('認証宣言はbooleanでなければならない', () => {
   const malformed = { ...complete, workflow: { ...complete.workflow, certified: 'false' } } as unknown as WorkflowManifest;
-  assert.ok(checkManifest(malformed, config).includes('workflow.certifiedはbooleanで指定してください'));
+  assert.ok(checkManifest(malformed, config).some(error => error.includes('workflow.certifiedはboolean')));
 });
 test('秘密情報らしき値を検出する', () => {
   assert.deepEqual(findSecrets('ordinary evidence'), []);
   assert.ok(findSecrets('-----BEGIN PRIVATE KEY-----').includes('秘密鍵'));
   assert.ok(findSecrets('ghp_abcdefghijklmnopqrstuvwxyz123456').includes('GitHubトークン'));
+});
+
+test('JSONから欠落や型不正を受け取っても例外終了せず拒否する', t => {
+  const root = mkdtempSync(join(tmpdir(), 'workflow-json-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const malformedManifests: unknown[] = [
+    null, [], {}, { ...complete, traits: { highRiskCategories: [] } },
+    { ...complete, classificationConfirmed: 'false' },
+    { ...complete, traits: { ...complete.traits, dataMigration: 0 } },
+    { ...complete, traits: { ...complete.traits, highRiskCategories: 'security-boundary' } },
+    { ...complete, artifacts: [] }, { ...complete, artifacts: { ticket: 1 } },
+    { ...complete, checks: 'passed' }, { ...complete, checks: [null] },
+    { ...complete, checks: [{ name: 'test', status: 'unknown', evidence: 'ok' }] },
+    { ...complete, review: { ...complete.review, kind: 'other' } },
+    { ...complete, review: null }, { ...complete, emergencyException: {} },
+    { ...complete, workflow: null }, { ...complete, workflow: { certified: false } },
+  ];
+  for (const value of malformedManifests) {
+    assert.doesNotThrow(() => checkManifest(value, config));
+    assert.ok(checkManifest(value, config).length, JSON.stringify(value));
+    const path = join(root, 'manifest.json');
+    writeFileSync(path, JSON.stringify(value));
+    assert.throws(() => loadManifest(path), /manifest|traits|review|workflow|checks|artifacts|classificationConfirmed|emergencyException/);
+  }
+  const malformedConfigs: unknown[] = [null, [], {},
+    { ...config, additionalHighRiskCategories: null },
+    { ...config, projectChecks: 'test' }, { ...config, projectChecks: [null] },
+    { ...config, projectChecks: [{ name: 'test', command: 'node', args: [1] }] },
+    { ...config, exceptionDefaultDays: '7' },
+  ];
+  for (const value of malformedConfigs) {
+    assert.doesNotThrow(() => checkConfig(value));
+    assert.ok(checkConfig(value).length, JSON.stringify(value));
+    writeFileSync(join(root, 'workflow.config.json'), JSON.stringify(value));
+    assert.throws(() => loadConfig(root));
+  }
 });
 
 const adapter: AdapterManifest = {
@@ -134,7 +200,7 @@ test('認証宣言はadapter記録と固定commitを照合する', () => {
     assert.deepEqual(checkCertificationClaim(manifest, adapters), expected, name);
   }
 });
-test('リポジトリ検証は認証宣言の照合を適用する', t => {
+test('任意の登録検証は認証宣言の照合を適用する', t => {
   const root = mkdtempSync(join(tmpdir(), 'workflow-certification-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.workflow', 'changes'), { recursive: true });
@@ -165,7 +231,7 @@ test('リポジトリ検証は認証宣言の照合を適用する', t => {
   execFileSync('git', ['config', 'user.name', 'Workflow Test'], { cwd: root });
   execFileSync('git', ['add', '.'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root });
-  const errors = checkWorkflowRepository(root);
+  const errors = checkWorkflowRegistration(root);
   assert.ok(errors.includes('.workflow/changes/fixture-missing.json: 認証済みアダプターがありません: missing'));
   assert.ok(!errors.some(error => error.includes('.workflow/changes/fixture-matching.json: 認証')));
   assert.ok(errors.includes('.workflow/changes/fixture-candidate.json: アダプターは候補状態です: candidate'));
@@ -182,25 +248,6 @@ test('敵対的な偽SKILLの破壊命令と秘密アクセスを検出する', 
   assert.ok(findings.some(finding => finding.includes('破壊的削除')));
   assert.ok(findings.some(finding => finding.includes('秘密情報')));
 });
-test('Superpowers候補adapterを実CLI・Git fixture・停止条件で再現可能に検証する', t => {
-  const directory = mkdtempSync(join(tmpdir(), 'superpowers-certification-log-'));
-  const output = join(directory, 'certification.md');
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const result = runCertificationHarness(process.cwd(), output);
-  assert.equal(result.success, true);
-  const log = readFileSync(output, 'utf8');
-  assert.ok(log.includes('successful finalize: true'));
-  assert.ok(log.includes('missing evidence refused: true'));
-  assert.ok(log.includes('all lifecycle commands isolated: true'));
-  for (const expected of [
-    'matt-pocock-engineering',
-    'superpowers-engineering',
-    'content preserved: true',
-    'unassigned output refused and preserved: true',
-    'hostile preflight refused: true',
-    'verification after finalization: true',
-  ]) assert.ok(log.includes(expected), expected);
-});
 test('既存プロジェクト診断は衝突を報告しファイルを変更しない', t => {
   const template = mkdtempSync(join(tmpdir(), 'workflow-template-'));
   const target = mkdtempSync(join(tmpdir(), 'workflow-target-'));
@@ -210,6 +257,9 @@ test('既存プロジェクト診断は衝突を報告しファイルを変更�
   const before = readFileSync(join(target, 'AGENTS.md'), 'utf8');
   const report = diagnose(target, template);
   assert.ok(report.conflicts.includes('AGENTS.md'));
-  assert.equal(report.safeToInitialize, false);
+  assert.equal(report.hasConflicts, true);
+  assert.equal('safeToInitialize' in report, false);
+  assert.equal(report.scope, 'limited-file-comparison');
+  assert.ok(report.unchecked.includes('package.json'));
   assert.equal(readFileSync(join(target, 'AGENTS.md'), 'utf8'), before);
 });

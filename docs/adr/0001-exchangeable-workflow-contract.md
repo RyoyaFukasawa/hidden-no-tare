@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: Superseded
 ---
 
 # ADR-0001: 外部ワークフローと完了契約を分離する

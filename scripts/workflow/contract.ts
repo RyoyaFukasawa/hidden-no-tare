@@ -1,3 +1,5 @@
+import { checkConfigShape, checkManifestShape } from './schema.ts';
+
 export const workflowStates = ['unclassified', 'researching', 'ready', 'implementing', 'review', 'complete'] as const;
 export const riskLevels = ['low', 'normal', 'high'] as const;
 
@@ -34,7 +36,7 @@ export interface WorkflowManifest {
   risk: RiskLevel | null;
   classificationConfirmed: boolean;
   traits: ChangeTraits;
-  workflow: { name: string; version: string; adapter: string; certified: boolean };
+  workflow?: { name: string; version: string; adapter: string; certified: boolean };
   artifacts: ArtifactMap;
   checks: CheckResult[];
   review?: Review;
@@ -56,7 +58,10 @@ export function requiredArtifacts(traits: ChangeTraits): (keyof ArtifactMap)[] {
   return required;
 }
 
-export function checkConfig(config: WorkflowConfig): string[] {
+export function checkConfig(value: unknown): string[] {
+  const shapeErrors = checkConfigShape(value);
+  if (shapeErrors.length) return shapeErrors;
+  const config = value as WorkflowConfig;
   const errors: string[] = [];
   if (config.schemaVersion !== 1) errors.push('workflow設定のschemaVersionは1にしてください');
   if (!Number.isInteger(config.exceptionDefaultDays) || config.exceptionDefaultDays < 1) errors.push('緊急例外の既定日数は1以上の整数にしてください');
@@ -80,18 +85,25 @@ function validDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) && !Number.isNaN(Date.parse(value));
 }
 
-export function checkManifest(manifest: WorkflowManifest, config: WorkflowConfig, now = new Date(), head?: string): string[] {
+export function checkManifest(value: unknown, config: WorkflowConfig, now = new Date(), head?: string): string[] {
+  const shapeErrors = [...checkManifestShape(value), ...checkConfig(config)];
+  if (shapeErrors.length) return shapeErrors;
+  const manifest = value as WorkflowManifest;
   const errors: string[] = [];
   if (manifest.schemaVersion !== 1) errors.push('manifestのschemaVersionは1にしてください');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id)) errors.push('変更IDは小文字英数字とハイフンで記載してください');
   if (!manifest.summary.trim()) errors.push('変更概要が必要です');
   if (!workflowStates.includes(manifest.state)) errors.push('不正な作業状態です');
   if (manifest.risk !== null && !riskLevels.includes(manifest.risk)) errors.push('不正なリスク分類です');
-  if (!manifest.workflow.name.trim() || !manifest.workflow.version.trim() || !manifest.workflow.adapter.trim()) errors.push('外部ワークフローの名前・固定バージョン・アダプターが必要です');
-  if (typeof manifest.workflow.certified !== 'boolean') errors.push('workflow.certifiedはbooleanで指定してください');
+  if (manifest.workflow) {
+    if (!manifest.workflow.name.trim() || !manifest.workflow.version.trim() || !manifest.workflow.adapter.trim()) errors.push('外部ワークフローの名前・固定バージョン・アダプターが必要です');
+    if (typeof manifest.workflow.certified !== 'boolean') errors.push('workflow.certifiedはbooleanで指定してください');
+  }
   const unknown = Object.entries(manifest.traits).filter(([key, value]) => key !== 'highRiskCategories' && value === null);
   if (unknown.length && !['unclassified', 'researching'].includes(manifest.state)) errors.push('未分類の変更特性があるためresearchingより先へ進めません');
-  if (manifest.state === 'complete' && !manifest.classificationConfirmed) errors.push('完了には変更分類の確定が必要です');
+  if (!['unclassified', 'researching'].includes(manifest.state) && (manifest.risk === null || !manifest.classificationConfirmed)) errors.push('researchingより先へ進むにはリスクと変更分類の確定が必要です');
+  const categories: readonly string[] = [...mandatoryHighRiskCategories, ...config.additionalHighRiskCategories];
+  for (const category of manifest.traits.highRiskCategories) if (!categories.includes(category)) errors.push(`未定義の高リスク分類です: ${category}`);
   if (manifest.traits.highRiskCategories.length && manifest.risk !== 'high') errors.push('高リスク分類がある変更はrisk: highが必要です');
   if (manifest.state === 'complete') {
     for (const key of requiredArtifacts(manifest.traits)) if (!manifest.artifacts[key]?.trim()) errors.push(`必要な成果物がありません: ${key}`);
