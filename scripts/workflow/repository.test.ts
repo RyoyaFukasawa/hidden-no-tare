@@ -138,3 +138,18 @@ test('未追跡の承認記録だけ更新すればfinalizeでき、追跡ファ
   assert.equal(git('status', '--porcelain'), '');
   assert.equal(git('rev-parse', 'HEAD'), before);
 });
+
+test('Gitやnpm不足を単なる検証失敗と区別して導入先を案内する', async t => {
+  for (const [entry, tool] of [['scripts/workflow/check-contract.ts', 'Git'], ['scripts/workflow/finalize.ts', 'npm']]) {
+    await t.test(tool, child => {
+      const { root } = cliFixture(child, "console.log('fixture')");
+      const empty = mkdtempSync(join(tmpdir(), 'no-workflow-tools-'));
+      child.after(() => rmSync(empty, { recursive: true, force: true }));
+      const result = spawnSync(process.execPath, [entry, ...(tool === 'npm' ? ['sample'] : [])], {
+        cwd: root, encoding: 'utf8', env: { ...process.env, PATH: empty },
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stdout + result.stderr, new RegExp(tool + '.*README'));
+    });
+  }
+});

@@ -1,7 +1,6 @@
 import { checkConfigShape, checkManifestShape } from './schema.ts';
-
-export const workflowStates = ['unclassified', 'researching', 'ready', 'implementing', 'review', 'complete'] as const;
-export const riskLevels = ['low', 'normal', 'high'] as const;
+import { workflowStates, riskLevels } from './vocabulary.ts';
+export { workflowStates, riskLevels } from './vocabulary.ts';
 
 export const mandatoryHighRiskCategories = [
   'authentication-authorization', 'secrets-cryptography', 'payments-billing',

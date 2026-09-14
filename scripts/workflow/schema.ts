@@ -1,3 +1,5 @@
+import { workflowStates, riskLevels } from './vocabulary.ts';
+
 type Rule = (value: unknown, path: string) => string[];
 const scalar = (type: 'string' | 'boolean' | 'number'): Rule => (value, path) =>
   typeof value === type ? [] : [`${path}は${type}で指定してください`];
@@ -26,8 +28,8 @@ const config = object({
 });
 const manifest = object({
   schemaVersion: oneOf([1]), id: string, summary: string,
-  state: oneOf(['unclassified', 'researching', 'ready', 'implementing', 'review', 'complete']),
-  risk: nullable(oneOf(['low', 'normal', 'high'])), classificationConfirmed: boolean,
+  state: oneOf(workflowStates),
+  risk: nullable(oneOf(riskLevels)), classificationConfirmed: boolean,
   traits: object({
     behaviorChanged: nullable(boolean), publicApiChanged: nullable(boolean),
     architectureDecisionChanged: nullable(boolean), dataMigration: nullable(boolean),

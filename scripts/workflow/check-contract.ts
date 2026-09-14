@@ -31,7 +31,11 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
   }
   let head: string | undefined;
   try { head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); }
-  catch { errors.push('GitリポジトリのHEADを取得できません'); }
+  catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      errors.push('Gitが見つかりません。Git 2.28以上を導入してPATHへ追加してください。README.mdの初期セットアップを参照してください。');
+    } else errors.push('GitリポジトリのHEADを取得できません。Git初期化と初回コミットを確認してください。');
+  }
   const manifestFiles = globSync('.workflow/changes/*.json', { cwd: root }).sort();
   let completing = false;
   const temporaryManifests = new Set<string>();

@@ -15,7 +15,12 @@
 - Git 2.28以上（worktreeと初期ブランチ指定を使用）。
 - lychee 0.24.2（リンク検証の動作確認版）。npmでは導入されません。
 
-Node.jsとGitを導入後、lycheeは[公式の0.24.2リリース](https://github.com/lycheeverse/lychee/releases/tag/lychee-v0.24.2)
+[Node.jsの公式ダウンロード](https://nodejs.org/en/download)で24系とOS・CPUを選び、npm付きで導入します。
+[Gitの公式導入案内](https://git-scm.com/downloads/)からOSに合う方法で導入し、
+`git config user.name`と`git config user.email`を自分のコミット情報に設定してください。
+確認コマンドが見つからない場合は、インストール先をPATHへ追加してターミナルを開き直します。
+
+lycheeは[公式の0.24.2リリース](https://github.com/lycheeverse/lychee/releases/tag/lychee-v0.24.2)
 からOS・CPUに合うバイナリを取得し、展開した`lychee`をPATHの通った場所に置きます。
 macOSでは[公式の導入案内](https://github.com/lycheeverse/lychee#installation)にある
 `brew install lychee`も使えますが、導入される版は変わるため確認してください。

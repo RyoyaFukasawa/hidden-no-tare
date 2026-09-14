@@ -22,8 +22,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         const project = contract.status === 0
           ? spawnSync('npm', ['run', 'verify:project'], { cwd: projectRoot, stdio: 'inherit', shell: false })
           : undefined;
-        if (contract.error) throw contract.error;
-        if (project?.error) throw project.error;
+        const launchError = contract.error ?? project?.error;
+        if (launchError) {
+          console.error('npmで検証を起動できません。Node.js 24.12.0以上と同梱npm・PATHを確認してください。README.mdの初期セットアップを参照してください。');
+          console.error(launchError.message);
+        }
         const status = contract.status !== 0 ? contract.status ?? 1 : project?.status ?? 1;
         if (status !== 0) process.exitCode = status;
         else {
