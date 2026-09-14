@@ -36,12 +36,17 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
   const adapters: AdapterManifest[] = [];
   for (const file of globSync('adapters/*.json', { cwd: root }).sort()) {
     try {
-      const adapter = JSON.parse(readFileSync(resolve(root, file), 'utf8')) as AdapterManifest;
+      const adapter = JSON.parse(readFileSync(resolve(root, file), 'utf8'));
       const adapterErrors = checkAdapter(adapter);
       errors.push(...adapterErrors.map(message => `${file}: ${message}`));
-      if (!adapterErrors.length) adapters.push(adapter);
+      if (!adapterErrors.length) adapters.push(adapter as AdapterManifest);
     } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
   }
+  const adapterCounts = new Map<string, number>();
+  for (const adapter of adapters) adapterCounts.set(adapter.id, (adapterCounts.get(adapter.id) ?? 0) + 1);
+  const duplicateAdapterIds = new Set([...adapterCounts].filter(([, count]) => count > 1).map(([id]) => id));
+  for (const id of duplicateAdapterIds) errors.push(`adapter IDが重複しています: ${id}`);
+  const uniqueAdapters = adapters.filter(adapter => !duplicateAdapterIds.has(adapter.id));
   const manifestFiles = globSync('.workflow/changes/*.json', { cwd: root }).sort();
   for (const file of manifestFiles) {
     try {
@@ -51,7 +56,7 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       for (const secret of findSecrets(raw)) errors.push(`${file}: ${secret}らしき値を保存しないでください`);
       const manifest = loadManifest(absolute);
       errors.push(...checkManifest(manifest, config, now, head).map(message => `${file}: ${message}`));
-      errors.push(...checkCertificationClaim(manifest, adapters).map(message => `${file}: ${message}`));
+      errors.push(...checkCertificationClaim(manifest, uniqueAdapters).map(message => `${file}: ${message}`));
       for (const [kind, artifact] of Object.entries(manifest.artifacts)) {
         if (!artifact) continue;
         if (isAbsolute(artifact) || artifact.split(/[\\/]/).includes('..')) errors.push(`${file}: ${kind}のパスはリポジトリ相対にしてください`);

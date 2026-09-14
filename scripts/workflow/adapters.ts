@@ -10,6 +10,10 @@ export interface AdapterManifest {
   certification: { status: 'candidate' | 'certified'; testedAt?: string; contractVersion: number; tests: string[] };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function checkCertificationClaim(manifest: WorkflowManifest, adapters: AdapterManifest[]): string[] {
   if (manifest.workflow.certified === false) return [];
   const adapter = adapters.find(candidate => candidate.id === manifest.workflow.adapter);
@@ -19,21 +23,45 @@ export function checkCertificationClaim(manifest: WorkflowManifest, adapters: Ad
   return [];
 }
 
-export function checkAdapter(adapter: AdapterManifest): string[] {
+export function checkAdapter(adapter: unknown): string[] {
   const errors: string[] = [];
+  if (!isRecord(adapter)) return ['adapterはobjectで指定してください'];
   if (adapter.schemaVersion !== 1) errors.push('adapterのschemaVersionは1にしてください');
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(adapter.id)) errors.push('adapter IDが不正です');
-  if (!adapter.workflow.name || !/^https:\/\/github\.com\//.test(adapter.workflow.repository)) errors.push('外部workflowの名前とGitHub出所が必要です');
-  if (!/^[0-9a-f]{7,40}$/.test(adapter.workflow.commit)) errors.push('外部workflowはcommitで固定してください');
-  if (!adapter.stages.length) errors.push('stageが必要です');
-  if (new Set(adapter.stages).size !== adapter.stages.length) errors.push('stageが重複しています');
-  if (!adapter.transforms.length) errors.push('成果物変換の宣言が必要です');
-  if (!['candidate', 'certified'].includes(adapter.certification.status)) errors.push('adapterのcertification.statusはcandidateまたはcertifiedにしてください');
-  if (adapter.certification.status === 'certified') {
-    const requiredTests = ['success', 'failure', 'hostile'];
-    for (const test of requiredTests) if (!adapter.certification.tests.includes(test)) errors.push(`認証テストがありません: ${test}`);
-    if (!adapter.certification.testedAt || Number.isNaN(Date.parse(adapter.certification.testedAt))) errors.push('認証日時が必要です');
+  if (typeof adapter.id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(adapter.id)) errors.push('adapter IDが不正です');
+  if (!isRecord(adapter.workflow)) errors.push('adapter.workflowはobjectで指定してください');
+  else {
+    if (typeof adapter.workflow.name !== 'string' || !adapter.workflow.name.trim()) errors.push('外部workflowの名前が必要です');
+    if (typeof adapter.workflow.repository !== 'string' || !/^https:\/\/github\.com\//.test(adapter.workflow.repository)) errors.push('外部workflowのGitHub出所が必要です');
+    if (typeof adapter.workflow.commit !== 'string' || !/^[0-9a-f]{7,40}$/.test(adapter.workflow.commit)) errors.push('外部workflowはcommitで固定してください');
   }
-  if (adapter.certification.contractVersion !== 1) errors.push('未対応のcontractVersionです');
+  if (!Array.isArray(adapter.stages)) errors.push('stageは文字列の配列で指定してください');
+  else {
+    if (!adapter.stages.length) errors.push('stageが必要です');
+    if (!adapter.stages.every(stage => typeof stage === 'string' && stage.trim())) errors.push('stageに不正な値があります');
+    else if (new Set(adapter.stages).size !== adapter.stages.length) errors.push('stageが重複しています');
+  }
+  if (!Array.isArray(adapter.transforms)) errors.push('成果物変換はオブジェクトの配列で指定してください');
+  else {
+    if (!adapter.transforms.length) errors.push('成果物変換の宣言が必要です');
+    for (const transform of adapter.transforms) {
+      if (!isRecord(transform) || typeof transform.from !== 'string' || typeof transform.to !== 'string' || typeof transform.mode !== 'string') errors.push('成果物変換には文字列のfrom・to・modeが必要です');
+      else if (!['path', 'format', 'lifecycle'].includes(transform.mode)) errors.push('成果物変換のmodeが不正です');
+    }
+  }
+  const permissions = ['filesystem-read', 'filesystem-write', 'network-read', 'external-write'];
+  if (!Array.isArray(adapter.requiredPermissions)) errors.push('requiredPermissionsは配列で指定してください');
+  else if (!adapter.requiredPermissions.every(permission => typeof permission === 'string' && permissions.includes(permission))) errors.push('requiredPermissionsに不正な値があります');
+  if (!isRecord(adapter.certification)) errors.push('adapter.certificationはobjectで指定してください');
+  else {
+    const { certification } = adapter;
+    if (!['candidate', 'certified'].includes(certification.status as string)) errors.push('adapterのcertification.statusはcandidateまたはcertifiedにしてください');
+    if (certification.contractVersion !== 1) errors.push('未対応のcontractVersionです');
+    if (!Array.isArray(certification.tests) || !certification.tests.every(test => typeof test === 'string' && test.trim())) errors.push('certification.testsは文字列の配列で指定してください');
+    if (certification.status === 'certified') {
+    const requiredTests = ['success', 'failure', 'hostile'];
+      if (Array.isArray(certification.tests)) for (const test of requiredTests) if (!certification.tests.includes(test)) errors.push(`認証テストがありません: ${test}`);
+      if (typeof certification.testedAt !== 'string' || Number.isNaN(Date.parse(certification.testedAt))) errors.push('認証日時が必要です');
+    }
+  }
   return errors;
 }
