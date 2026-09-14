@@ -32,6 +32,12 @@ status: in-progress
 - `npm run typecheck`はTypeScriptのエラーなく成功した。
 - `npm run verify`は、契約検証0エラー、作業項目2件・0エラー、Markdown 0件、
   プロジェクトチェック52件すべて成功で終了した。
+- Adapter runtime RED: `node --test scripts/workflow/contract.test.ts`は2件失敗した。
+  `checkAdapter(null)`が例外を送出し、重複した有効adapter IDが任意に照合対象へ残る
+  既存の境界不足による期待どおりの失敗である。
+- Adapter runtime GREEN: `node --test scripts/workflow/contract.test.ts`は15件すべて成功した。
+- `npm run verify`は、契約検証0エラー、作業項目2件・0エラー、Markdown 0件、
+  プロジェクトチェック53件すべて成功で終了した。
 
 - 人間承認：利用者が2026-09-14に`6f7134a`のmain反映を承認した。
 - main反映：同じ差分を`2351b98`としてcherry-pickした。

@@ -72,6 +72,23 @@ test('認証済みadapterは正常・失敗・敵対テストを要求する', (
   const malformed = { ...adapter, certification: { ...adapter.certification, status: 'unknown' } } as unknown as AdapterManifest;
   assert.ok(checkAdapter(malformed).includes('adapterのcertification.statusはcandidateまたはcertifiedにしてください'));
 });
+test('不正なadapter JSONを安全に構造検証する', () => {
+  const cases: { name: string; value: unknown; expected: string }[] = [
+    { name: 'top-level', value: null, expected: 'adapterはobjectで指定してください' },
+    { name: 'workflow', value: { ...adapter, workflow: 'invalid' }, expected: 'adapter.workflowはobjectで指定してください' },
+    { name: 'stages string', value: { ...adapter, stages: 'plan' }, expected: 'stageは文字列の配列で指定してください' },
+    { name: 'stages item', value: { ...adapter, stages: ['plan', 1] }, expected: 'stageに不正な値があります' },
+    { name: 'transforms string', value: { ...adapter, transforms: 'format' }, expected: '成果物変換はオブジェクトの配列で指定してください' },
+    { name: 'transform fields', value: { ...adapter, transforms: [{ from: 1, to: 'change-spec', mode: 'format' }] }, expected: '成果物変換には文字列のfrom・to・modeが必要です' },
+    { name: 'permissions', value: { ...adapter, requiredPermissions: ['filesystem-read', 'shell'] }, expected: 'requiredPermissionsに不正な値があります' },
+    { name: 'certification', value: { ...adapter, certification: 'certified' }, expected: 'adapter.certificationはobjectで指定してください' },
+    { name: 'tests string', value: { ...adapter, certification: { ...adapter.certification, tests: 'success' } }, expected: 'certification.testsは文字列の配列で指定してください' },
+  ];
+  for (const { name, value, expected } of cases) {
+    assert.doesNotThrow(() => checkAdapter(value), name);
+    assert.ok(checkAdapter(value).includes(expected), name);
+  }
+});
 test('認証宣言はadapter記録と固定commitを照合する', () => {
   const cases: { name: string; manifest: WorkflowManifest; adapters: AdapterManifest[]; expected: string[] }[] = [
     {
@@ -134,10 +151,13 @@ test('リポジトリ検証は認証宣言の照合を適用する', t => {
   writeFileSync(join(root, 'adapters', 'matching.json'), JSON.stringify(adapter));
   writeFileSync(join(root, 'adapters', 'candidate.json'), JSON.stringify({ ...adapter, id: 'candidate', certification: { ...adapter.certification, status: 'candidate' } }));
   writeFileSync(join(root, 'adapters', 'invalid.json'), JSON.stringify({ ...adapter, id: 'invalid', certification: { ...adapter.certification, status: 'unknown' } }));
+  writeFileSync(join(root, 'adapters', 'duplicate-a.json'), JSON.stringify({ ...adapter, id: 'duplicate' }));
+  writeFileSync(join(root, 'adapters', 'duplicate-b.json'), JSON.stringify({ ...adapter, id: 'duplicate' }));
   writeFileSync(join(root, '.workflow', 'changes', 'fixture-missing.json'), JSON.stringify(manifest('fixture-missing', 'missing')));
   writeFileSync(join(root, '.workflow', 'changes', 'fixture-matching.json'), JSON.stringify(manifest('fixture-matching', 'sample')));
   writeFileSync(join(root, '.workflow', 'changes', 'fixture-candidate.json'), JSON.stringify(manifest('fixture-candidate', 'candidate')));
   writeFileSync(join(root, '.workflow', 'changes', 'fixture-invalid.json'), JSON.stringify(manifest('fixture-invalid', 'invalid')));
+  writeFileSync(join(root, '.workflow', 'changes', 'fixture-duplicate.json'), JSON.stringify(manifest('fixture-duplicate', 'duplicate')));
   execFileSync('git', ['init', '--initial-branch=main'], { cwd: root });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Workflow Test'], { cwd: root });
@@ -149,6 +169,8 @@ test('リポジトリ検証は認証宣言の照合を適用する', t => {
   assert.ok(errors.includes('.workflow/changes/fixture-candidate.json: アダプターは候補状態です: candidate'));
   assert.ok(errors.includes('adapters/invalid.json: adapterのcertification.statusはcandidateまたはcertifiedにしてください'));
   assert.ok(errors.includes('.workflow/changes/fixture-invalid.json: 認証済みアダプターがありません: invalid'));
+  assert.ok(errors.includes('adapter IDが重複しています: duplicate'));
+  assert.ok(errors.includes('.workflow/changes/fixture-duplicate.json: 認証済みアダプターがありません: duplicate'));
 });
 test('敵対的な偽SKILLの破壊命令と秘密アクセスを検出する', t => {
   const directory = mkdtempSync(join(tmpdir(), 'hostile-skill-'));
