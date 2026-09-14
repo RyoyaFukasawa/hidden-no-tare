@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnose } from './diagnose.ts';
+import { runCertificationHarness } from './adapter-certification-harness.ts';
 
 const config: WorkflowConfig = { schemaVersion: 1, exceptionDefaultDays: 7, exceptionMaximumDays: 30, additionalHighRiskCategories: [], projectChecks: [] };
 const complete: WorkflowManifest = {
@@ -180,6 +181,24 @@ test('敵対的な偽SKILLの破壊命令と秘密アクセスを検出する', 
   const findings = inspectSkill(directory);
   assert.ok(findings.some(finding => finding.includes('破壊的削除')));
   assert.ok(findings.some(finding => finding.includes('秘密情報')));
+});
+test('Superpowers候補adapterを実CLI・Git fixture・停止条件で再現可能に検証する', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'superpowers-certification-log-'));
+  const output = join(directory, 'certification.md');
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const result = runCertificationHarness(process.cwd(), output);
+  assert.equal(result.success, true);
+  const log = readFileSync(output, 'utf8');
+  for (const expected of [
+    'CASE 1: connection and non-lossy transformation',
+    'CASE 2: success fixture',
+    'CASE 3: failure fixture',
+    'CASE 4: hostile inspection and stopping condition',
+    'アダプターは候補状態です: superpowers-engineering',
+    'manifestをstate: completeにしてからfinalizeしてください',
+    'sentinel absent: true',
+    'adapter runtime permissions: filesystem-read, filesystem-write',
+  ]) assert.ok(log.includes(expected), expected);
 });
 test('既存プロジェクト診断は衝突を報告しファイルを変更しない', t => {
   const template = mkdtempSync(join(tmpdir(), 'workflow-template-'));

@@ -22,9 +22,8 @@
   ],
   "requiredPermissions": ["filesystem-read", "filesystem-write"],
   "certification": {
-    "status": "certified",
-    "testedAt": "2026-09-14T14:19:09Z",
+    "status": "candidate",
     "contractVersion": 1,
-    "tests": ["success", "failure", "hostile"]
+    "tests": []
   }
 }
