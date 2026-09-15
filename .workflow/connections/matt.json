@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "matt",
+  "files": {},
+  "compatibility": {
+    "docs/agents/issue-tracker.md": "# Matt接続：仕様・チケットの管理先\n\n管理先はローカルMarkdownです。GitHub Issueへ公開しません。\n作業資料は `.workflow/external/matt/` を利用できます。\n共通ルール・テンプレート・ready-for-agentの意味・完了時の移管は\n[文書の管理](../product/exchangeable-development-workflow.md#文書の管理)に従ってください。\n既存の変更仕様があれば更新し、重複する仕様を作りません。\n用語は `CONTEXT.md`、判断は `docs/adr/` が共通の正本です。\nこのファイルは再生成用です。作業内容を書き足さず、撤去は `npm run workflow:connection -- detach matt` で行います。\n"
+  }
+}

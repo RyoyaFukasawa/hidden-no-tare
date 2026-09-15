@@ -4,5 +4,6 @@ node_modules/
 .workflow/logs/
 .workflow/external/
 .workflow/connection-state/
+/docs/agents/issue-tracker.md
 
 .DS_Store
