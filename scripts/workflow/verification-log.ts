@@ -51,11 +51,12 @@ function saveLog(root: string, content: Buffer): string {
   mkdirSync(lock, { mode: 0o700 }); // Serialize only persistence/rotation; never delete another writer's lock.
   try {
     const file = `.workflow/logs/verification-${Date.now()}-${randomUUID()}.log`;
-    writeFileSync(resolve(root, file), Buffer.concat([HEADER, content]), { flag: 'wx', mode: 0o600 });
     const tracked = spawnSync('git', ['ls-files', '-z', '--', '.workflow/logs'], { cwd: root, encoding: 'utf8' });
+    if (tracked.status !== 0) throw new Error('ログの所有確認に失敗しました。Gitの実行環境を確認してください');
+    writeFileSync(resolve(root, file), Buffer.concat([HEADER, content]), { flag: 'wx', mode: 0o600 });
     const trackedFiles = new Set(tracked.stdout?.split('\0'));
     const managed: { path: string; size: number; time: number }[] = [];
-    if (tracked.status === 0) for (const name of readdirSync(directory)) {
+    for (const name of readdirSync(directory)) {
       if (!/^verification-\d+-[0-9a-f-]{36}\.log$/.test(name) || trackedFiles.has(`.workflow/logs/${name}`)) continue;
       const path = resolve(directory, name);
       const stat = lstatSync(path);
@@ -66,7 +67,6 @@ function saveLog(root: string, content: Buffer): string {
       if (!header.equals(HEADER)) continue;
       managed.push({ path, size: stat.size, time: stat.mtimeMs });
     }
-    // An unavailable Git does not authorize deleting files of unknown ownership.
     const current = resolve(root, file);
     managed.sort((a, b) => Number(a.path === current) - Number(b.path === current)
       || a.time - b.time || a.path.localeCompare(b.path));
@@ -101,7 +101,9 @@ export async function runLogged(root: string, label: string, command: string, ar
   try {
     file = saveLog(root, content);
   } catch (error) {
-    throw new Error(`検証ログを保存できません: ${error instanceof Error ? error.message : String(error)}`);
+    if (result.status !== 0) process.stderr.write(excerpt.content());
+    const launch = result.error ? `\n${command}の起動に失敗しました。README.mdの実行環境・PATHを確認してください。` : '';
+    throw new Error(`検証ログを保存できません: ${error instanceof Error ? error.message : String(error)}${launch}`);
   }
   console.log(`${result.status === 0 ? 'PASS' : 'FAIL'} ${label} (exit ${result.status}) — Log: ${file}${output.truncated ? ' (省略あり)' : ''}`);
   if (result.status !== 0) process.stderr.write(excerpt.content());

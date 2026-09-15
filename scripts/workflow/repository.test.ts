@@ -196,6 +196,47 @@ test('検証後の完了境界の失敗も診断ログへ残す', t => {
   assert.equal(readFileSync(path, 'utf8'), before);
 });
 
+test('ログ所有確認のGit失敗では新しいログを作らず診断付きで拒否する', t => {
+  const { root, path } = cliFixture(t, "console.log('passed')");
+  const bin = mkdtempSync(join(tmpdir(), 'logging-git-failure-'));
+  t.after(() => rmSync(bin, { recursive: true, force: true }));
+  const git = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+  // System-boundary fault injection: real Git handles everything except log ownership lookup.
+  writeFileSync(join(bin, 'git'), `#!${process.execPath}\nconst {spawnSync}=require('node:child_process');const args=process.argv.slice(2);if(args.includes('.workflow/logs'))process.exit(23);const result=spawnSync(${JSON.stringify(git)},args,{stdio:'inherit'});process.exit(result.status??1);\n`, { mode: 0o755 });
+  const directory = join(root, '.workflow/logs');
+  mkdirSync(directory); writeFileSync(join(directory, 'notes.txt'), 'keep');
+  const before = readFileSync(path, 'utf8');
+  for (const entry of ['scripts/verify.ts', 'scripts/workflow/finalize.ts']) {
+    const result = spawnSync(process.execPath, [entry, ...(entry.endsWith('finalize.ts') ? ['sample'] : [])], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /ログ.*所有確認/);
+    assert.deepEqual(readdirSync(directory), ['notes.txt']);
+    assert.equal(readFileSync(path, 'utf8'), before);
+  }
+});
+
+test('ログ整理でもGit追跡へ変更されたログと偽装名の利用者ファイルは削除しない', t => {
+  const { root, git, manifest, save } = cliFixture(t, "console.log('passed')");
+  const run = () => spawnSync(process.execPath, ['scripts/verify.ts'], { cwd: root, encoding: 'utf8' });
+  const first = run();
+  assert.equal(first.status, 0);
+  const tracked = /Log: (\.workflow\/logs\/[^\s]+)/.exec(first.stdout)![1];
+  const content = readFileSync(join(root, tracked), 'utf8');
+  git('add', '-f', tracked); git('commit', '-m', 'test: user tracked a log');
+  manifest.review!.commit = git('rev-parse', 'HEAD'); save();
+  const unknown = join(root, '.workflow/logs/verification-1-00000000-0000-0000-0000-000000000000.log');
+  writeFileSync(unknown, 'user-owned content');
+  for (let index = 0; index < 3; index++) {
+    const result = run();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  assert.equal(readFileSync(join(root, tracked), 'utf8'), content);
+  assert.equal(readFileSync(unknown, 'utf8'), 'user-owned content');
+  assert.equal(git('status', '--porcelain'), '');
+});
+
 test('researchingのverifyは草案を許可し承認不備・本文変更を拒否する', t => {
   const { root, manifest, path, save } = cliFixture(t, "console.log('fixture passed')");
   manifest.state = 'researching';

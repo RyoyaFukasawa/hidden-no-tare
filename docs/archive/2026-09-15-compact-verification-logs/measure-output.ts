@@ -1,4 +1,5 @@
-// Run from the repository root. Creates and removes only an isolated test fixture.
+// Run from the repository root. Historical measurement against c148215; requires that Git history.
+// Creates and removes only an isolated test fixture.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
