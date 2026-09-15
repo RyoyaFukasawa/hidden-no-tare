@@ -54,4 +54,4 @@ supersedes: ["0002"]
 分類の誤りは独立レビューで検出する必要があり、機械検証の成功だけでは分類の妥当性を保証できない。
 
 CLI・現行仕様・エージェント向け指示は同じ変更単位で切り替える。
-適用内容と検証証跡は[実装チケット](../../work/lightweight-changes/issues/01-lightweight-changes.md)に記録する。
+適用内容と検証証跡は[実装チケット](../archive/2026-09-15-lightweight-changes/issues/01-lightweight-changes.md)に記録する。
