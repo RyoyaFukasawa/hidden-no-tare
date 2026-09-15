@@ -4,6 +4,4 @@
 
 | ID | タイトル | 状態 | 置き換え元 | 後継 |
 | --- | --- | --- | --- | --- |
-| 0001 | [外部ワークフローと完了契約を分離する](0001-exchangeable-workflow-contract.md) | Superseded | — | [0002](0002-independent-completion-contract.md) |
-| 0002 | [必須の完了契約と任意のワークフロー接続を分離する](0002-independent-completion-contract.md) | Superseded | [0001](0001-exchangeable-workflow-contract.md) | [0003](0003-lightweight-change-records.md) |
-| 0003 | [軽微変更は一時マニフェストを維持しチケットを省略する](0003-lightweight-change-records.md) | Accepted | [0002](0002-independent-completion-contract.md) | — |
+| 0004 | [開発手順から契約を分離し、人間とCLIで承認の責務を分担する](0004-workflow-contract-ownership.md) | Accepted | — | — |

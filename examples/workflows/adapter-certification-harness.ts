@@ -40,6 +40,14 @@ export function runCertificationHarness(projectRoot: string, outputPath: string)
       cpSync(join(root, 'scripts'), join(fixture, 'scripts'), { recursive: true });
       cpSync(join(root, 'docs'), join(fixture, 'docs'), { recursive: true });
       cpSync(join(root, 'AGENTS.md'), join(fixture, 'AGENTS.md'));
+      // 文書のリンク先（ルートREADMEや作業中の仕様）も隔離環境に保持する。
+      // 作業場所を固定せず、リポジトリが追跡しているMarkdownを使用する。
+      const documents = execFileSync('git', ['ls-files', '-z', '--', '*.md'], { cwd: root, encoding: 'utf8' });
+      for (const document of documents.split('\0').filter(Boolean)) {
+        if (!existsSync(join(root, document))) continue;
+        mkdirSync(dirname(join(fixture, document)), { recursive: true });
+        cpSync(join(root, document), join(fixture, document));
+      }
       writeFileSync(join(fixture, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\n');
       cpSync(join(root, 'package.json'), join(fixture, 'package.json'));
       symlinkSync(realpathSync(join(root, 'node_modules')), join(fixture, 'node_modules'), 'dir');

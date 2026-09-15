@@ -6,6 +6,8 @@
 - `ticket.md`：[to-tickets/SKILL.md](https://github.com/mattpocock/skills/blob/main/skills/engineering/to-tickets/SKILL.md)の`local-ticket-template`。GitHub Issue用ではなく、ローカルMarkdown用。
 
 - `adr.md`：このプロジェクトで合意したADR形式。保存先は`docs/adr/NNNN-<name>.md`。
+  3条件を満たす判断だけDraftとして作り、本文の人間承認後に承認メタデータを付けてAcceptedにする。
+  [承認手順](../../README.md#adrの作成と本文承認)に従い、本文を変える場合は再承認する。
 - `product-spec.md`：このプロジェクトで定義した現行仕様の形式。保存先は`docs/product/<feature>.md`。[OpenSpec](https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md)の現行仕様と変更計画の分離、[Spec Kit](https://github.com/github/spec-kit/blob/main/templates/spec-template.md)のシナリオ・境界条件の観点を参考にした。テンプレートの転載ではない。
 
 今後skillを更新・交換しても、この定義は自動更新しない。必要な変更をプロジェクト側で判断する。

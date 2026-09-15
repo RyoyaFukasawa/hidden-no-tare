@@ -80,6 +80,52 @@ npm run verify
 `state: researching`へ戻して変更特性・リスクを再評価します。チケットと必要成果物を用意してから
 再検証・再レビューしてください。理由・分類確認の欠落や、高リスク・変更特性との矛盾はCLIが拒否します。
 
+## ADRの作成と本文承認
+
+構造・技術・責務の判断、実際の代案とトレードオフ、将来必要な選択理由の3条件を
+すべて満たす場合だけADRを作ります。仕様や運用細則は仕様へ、実装手順はチケットへ記録します。
+迷う場合は文書を作る前に候補と理由を利用者へ確認し、ADRのために代案を創作しません。
+
+1. [ADRテンプレート](docs/templates/adr.md)からDraftを作成します。
+   説明コメントの削除なども先に済ませ、承認を求める本文を確定します。
+2. `npm run adr:generate`と`npm run verify`で草案の形式を確認します。
+3. 人間に実際の本文を提示し、明示的な承認を受けます。会話の設計合意だけでは代用できません。
+   承認前は依存する本実装を止め、調査・試作までにします。
+4. 承認した本文のハッシュを計算し、下記の3項目をfrontmatterへ追加してAcceptedにします。
+   例の承認者・日時を流用せず、実際の承認内容を記録してください。
+5. 一覧を再生成して`npm run verify`を実行します。本文変更は誤字・整形・リンクだけでも再承認が必要です。
+
+```yaml
+status: Accepted
+approvedBy: "実際に承認した人"
+approvedAt: "2026-09-15T09:00:00Z"
+approvedBodySha256: "承認した本文の小文字64桁SHA-256"
+```
+
+本文はfrontmatter終了行の改行直後から末尾までです。次は本文ハッシュを表示するだけで、
+承認の記録・ファイルの書き換えはしません。パスは対象ADRへ置き換えてください。
+
+```sh
+node --input-type=module - docs/adr/0004-workflow-contract-ownership.md <<'NODE'
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+const text = new TextDecoder('utf-8', { fatal: true })
+  .decode(readFileSync(process.argv[2]));
+const doc = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(text);
+if (!doc) throw new Error('frontmatterが不正です');
+console.log(createHash('sha256').update(doc[2]).digest('hex'));
+NODE
+```
+
+空白・コメント・改行コードも本文の一部です。ハッシュだけを合わせて人間確認を省略しないでください。
+一覧再生成と有効なメタデータ更新だけでは再承認は不要です。記録の一致は読了・本人性の証明ではありません。
+Draftには承認メタデータを付けず、Accepted・Superseded・Deprecatedには付けます。
+
+通常の判断変更は新ADRで旧ADR全体を置き換えます。草案の`supersedes`は提案なので旧ADRを維持し、
+新ADRの本文承認・採用時に旧ADRをSupersededにします。草案そのものは置き換え元にできません。
+ADRの単体検査はCLIで行いますが、変更との依存を使った実装移行・完了の機械検査は後続作業です。
+現段階では依存する実装の停止を指示・レビューで確認します。最終コミットの承認は下記の別手続きです。
+
 ## 完了と承認の順序
 
 1. 変更特性・リスクを確定し、成果物と検証証跡を整える。並行作業は別worktreeに分ける。

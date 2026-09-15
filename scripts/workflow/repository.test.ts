@@ -100,6 +100,52 @@ function cliFixture(t: TestContext, projectCode: string) {
   return result;
 }
 
+test('researchingのverifyは草案を許可し承認不備・本文変更を拒否する', t => {
+  const { root, manifest, path, save } = cliFixture(t, "console.log('fixture passed')");
+  manifest.state = 'researching';
+  delete manifest.review;
+  save();
+  const file = join(root, 'docs/adr/0001-approval.md');
+  const body = '\n# ADR-0001: Approval fixture\n\nBody.\n';
+  const draft = `---\nstatus: Draft\n---\n${body}`;
+  const approved = '---\nstatus: Accepted\napprovedBy: "fixture-only"\n'
+    + 'approvedAt: "2026-09-15T00:00:00Z"\n'
+    + 'approvedBodySha256: "de79e697f08e2691c08eb1356da8a5024422c8e54756c72cd17ee9843b6e81c3"\n'
+    + `---\n${body}`;
+  const run = (script: string) => spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+  writeFileSync(file, draft);
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  const originalManifest = readFileSync(path, 'utf8');
+  const draftVerification = run('scripts/verify.ts');
+  assert.equal(draftVerification.status, 0, draftVerification.stdout + draftVerification.stderr);
+  for (const [name, content] of [
+    ['草案の形式不正', draft.replace('ADR-0001', 'ADR-0002')],
+    ['承認欠落', draft.replace('Draft', 'Accepted')],
+    ['承認型不正', approved.replace('"fixture-only"', 'false')],
+    ['本文変更', approved.replace('Body.', 'Changed.')],
+  ]) {
+    writeFileSync(file, content);
+    const result = run('scripts/verify.ts');
+    assert.equal(result.status, 1, name + ': ' + result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /ADR検証失敗/);
+    assert.equal(readFileSync(file, 'utf8'), content);
+    assert.equal(readFileSync(path, 'utf8'), originalManifest);
+  }
+  writeFileSync(file, approved);
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  // 別の有効草案があるだけでは、承認済みADRの検証を妨げない。
+  writeFileSync(join(root, 'docs/adr/0002-other.md'), draft.replace('ADR-0001', 'ADR-0002'));
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  const final = run('scripts/verify.ts');
+  assert.equal(final.status, 0, final.stdout + final.stderr);
+  assert.equal(readFileSync(path, 'utf8'), originalManifest);
+  // マニフェストが片付いても、ADR自体の承認検査は続く。
+  rmSync(path);
+  assert.equal(run('scripts/adr/check.ts').status, 0);
+  writeFileSync(file, approved.replace('Body.', 'Changed.'));
+  assert.equal(run('scripts/adr/check.ts').status, 1);
+});
+
 function lightweightFixture(t: TestContext, projectCode = "console.log('fixture passed')") {
   const result = cliFixture(t, projectCode);
   const { git, manifest, save } = result;
