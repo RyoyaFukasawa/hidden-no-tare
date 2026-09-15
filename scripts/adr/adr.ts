@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
-type Status = 'Accepted' | 'Superseded' | 'Deprecated';
+type Status = 'Draft' | 'Accepted' | 'Superseded' | 'Deprecated';
 type Adr = { id: string; file: string; title: string; status: Status; supersedes: string[] };
 
 const directory = fileURLToPath(new URL('../../docs/adr/', import.meta.url));
@@ -15,18 +16,44 @@ function read(path: string): string {
 function parse(file: string, text: string): Adr {
   const name = /^(\d{4})-[^/\\\s]+\.md$/.exec(file);
   if (!name) fail(`${file}: ファイル名はNNNN-<name>.mdにしてください`);
-  const doc = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text.replace(/\r\n/g, '\n'));
+  const doc = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(text);
   if (!doc) fail(`${file}: YAMLメタデータが必要です`);
   const fields = new Map<string, string>();
   // テンプレートの形式に限定。一般のYAML構文は受け付けない。
-  for (const line of doc[1].split('\n')) {
+  for (const line of doc[1].split(/\r?\n/)) {
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
-    const field = /^(status|supersedes):\s*(.*?)\s*$/.exec(line);
+    const field = /^(status|supersedes|approvedBy|approvedAt|approvedBodySha256):\s*(.*?)\s*$/.exec(line);
     if (!field || fields.has(field[1])) fail(`${file}: メタデータの不正な行または重複キー: ${line}`);
     fields.set(field[1], field[2]);
   }
   const status = fields.get('status');
-  if (status !== 'Accepted' && status !== 'Superseded' && status !== 'Deprecated') fail(`${file}: 状態が不正です`);
+  if (status !== 'Draft' && status !== 'Accepted' && status !== 'Superseded' && status !== 'Deprecated') fail(`${file}: 状態が不正です`);
+  if (status === 'Draft' && ['approvedBy', 'approvedAt', 'approvedBodySha256'].some(key => fields.has(key))) {
+    fail(`${file}: 草案に承認記録は付けられません。承認後にAcceptedへ変更してください`);
+  }
+  if (status !== 'Draft') {
+    const approval = new Map<string, string>();
+    for (const key of ['approvedBy', 'approvedAt', 'approvedBodySha256']) {
+      if (!fields.has(key)) fail(`${file}: 承認記録${key}が必要です`);
+      let value: unknown;
+      try { value = JSON.parse(fields.get(key)!); }
+      catch { fail(`${file}: 承認記録${key}はJSON文字列で記載してください`); }
+      if (typeof value !== 'string' || !value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
+        fail(`${file}: 承認記録${key}には制御文字のない空でない文字列が必要です`);
+      }
+      approval.set(key, value);
+    }
+    const at = approval.get('approvedAt')!;
+    const milliseconds = Date.parse(at);
+    const canonical = at.includes('.') ? at : at.replace(/Z$/, '.000Z');
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(at)
+      || !Number.isFinite(milliseconds) || new Date(milliseconds).toISOString() !== canonical) {
+      fail(`${file}: 承認日時は実在するUTC日時で記載してください`);
+    }
+    if (approval.get('approvedBodySha256') !== createHash('sha256').update(doc[2]).digest('hex')) {
+      fail(`${file}: 本文が承認対象と一致しません。再承認が必要です`);
+    }
+  }
   const value = fields.get('supersedes');
   let supersedes: string[] = [];
   if (value !== undefined) {
@@ -62,7 +89,8 @@ function load(): Adr[] {
   for (const adr of records) for (const id of adr.supersedes) {
     if (!byId.has(id)) fail(`${adr.id}: 参照先${id}がありません`);
     if (id === adr.id) fail(`${adr.id}: 自己参照しています`);
-    referenced.add(id);
+    if (byId.get(id)!.status === 'Draft') fail(`${adr.id}: 草案${id}は置き換え元にできません`);
+    if (adr.status !== 'Draft') referenced.add(id);
   }
   for (const adr of records) {
     if ((adr.status === 'Superseded') !== referenced.has(adr.id)) fail(`${adr.id}: 状態と後継の有無が一致しません`);
@@ -92,7 +120,7 @@ function render(records: Adr[]): string {
   return [
     '# ADR一覧', '', '<!-- 自動生成。ADR本体を編集し、一覧生成コマンドを実行してください。 -->', '',
     '| ID | タイトル | 状態 | 置き換え元 | 後継 |', '| --- | --- | --- | --- | --- |',
-    ...records.map(adr => `| ${adr.id} | [${escape(adr.title)}](${encodeURIComponent(adr.file)}) | ${adr.status} | ${list(adr.supersedes)} | ${list(records.filter(next => next.supersedes.includes(adr.id)).map(next => next.id))} |`), '',
+    ...records.map(adr => `| ${adr.id} | [${escape(adr.title)}](${encodeURIComponent(adr.file)}) | ${adr.status} | ${list(adr.supersedes)} | ${list(records.filter(next => next.status !== 'Draft' && next.supersedes.includes(adr.id)).map(next => next.id))} |`), '',
   ].join('\n');
 }
 
