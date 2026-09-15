@@ -2,5 +2,7 @@ node_modules/
 .worktrees/
 .workflow/changes/*.json
 .workflow/logs/
+.workflow/external/
+.workflow/connection-state/
 
 .DS_Store

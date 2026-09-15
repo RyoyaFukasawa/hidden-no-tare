@@ -183,6 +183,50 @@ npm run verify:examples
 任意の登録を使う場合だけ、prepareの末尾に`<workflow> <commit> <adapter>`を追加できます。
 `workflow.certified`の宣言の照合は`verify:registration`で行い、通常のverifyは認証を保証しません。
 
+### 外部接続の作業領域を使う
+
+登録・認証用の`adapters/`とは別に、生成するファイルを
+`.workflow/connections/<id>.json`へ定義します。これは接続ファイルの生成・撤去だけを行い、
+SKILL本体はインストールしません。例えば`.workflow/connections/demo.json`は次の形式です。
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "demo",
+  "files": { "config.md": "# Demo connection\n" },
+  "compatibility": { "docs/agents/demo.md": "# Demo settings\n" }
+}
+```
+
+定義をGitへ追加し、固定パスを`.gitignore`へ個別に追加します（例：`/docs/agents/demo.md`）。
+`.workflow/external/`と`.workflow/connection-state/`は同梱のignore対象です。
+既存ファイルは上書きしないため、既に追跡されている文書の移行は別途レビューして行ってください。
+
+```sh
+git add .workflow/connections/demo.json .gitignore
+npm run workflow:connection -- attach demo
+# .workflow/external/demo/ で作業する
+npm run workflow:connection -- detach demo
+```
+
+生成定義を変更する際は先に撤去し、変更後に再接続します。
+複数接続は併用できますが、同じ固定パスの共有はできません。使う接続の情報だけ参照してください。
+現時点のMatt文書の移行は別チケットで行い、この例で既存のMatt接続が自動移行されるわけではありません。
+
+- 作業中の資料は通常のverifyを妨げません。ただし未移管資料や変更済みファイルがあると、
+  撤去と完了は止まります。同じworktree内のすべての接続が対象です。
+- 残す成果物は共通の保存先へ手動で移管し、不要なものは内容を確認して明示的に破棄します。
+  コマンドに強制削除オプションはありません。未変更の生成ファイルは完了後も残せます。
+- 所有記録が不正・欠落している場合や`phase`が`active`でない場合は処理を止めます。
+  元の定義と残存ファイルを確認し、資料を退避してください。記録だけ消して解決しようとしないでください。
+  自動修復はありません。手動撤去では所有を確認した生成ファイル・空ディレクトリだけを片付け、
+  最後に該当接続の記録を取り除いてから再接続します。
+- `.workflow/connection-state/.lock`が残った場合は接続操作が動いていないことを確認し、
+  残存状態を点検した後、その空ロックディレクトリだけを取り除きます。
+- 操作中の外部プロセスによる同時編集を避けてください。これは物理的な隔離・改ざん防止ではありません。
+
+形式と保護対象の詳細は[現行仕様](docs/product/exchangeable-development-workflow.md#外部接続の専用領域)を参照してください。
+
 ## 既存プロジェクトへの補助診断
 
 ```sh

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkConfig, checkManifest } from './contract.ts';
 import { loadConfig, loadManifest } from './io.ts';
 import { loadAdrs } from '../adr/adr.ts';
+import { checkConnections } from './connections.ts';
 
 const secretPatterns: [string, RegExp][] = [
   ['秘密鍵', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
@@ -75,6 +76,7 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       }
     } catch (error) { errors.push(`${file}: ${error instanceof Error ? error.message : String(error)}`); }
   }
+  errors.push(...checkConnections(root, completing));
   if (completing) {
     try {
       const status = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=none'], { cwd: root, encoding: 'utf8' }).split('\0');
@@ -90,7 +92,7 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       if (tracked.length) errors.push('一時マニフェストをGit追跡から外し、文書整理後のコミットで再承認してください');
     } catch { errors.push('完了時のGit作業状態を取得できません'); }
   }
-  for (const file of globSync(['docs/**/*.md', '.workflow/**/*.json'], { cwd: root }).sort()) {
+  for (const file of globSync(['docs/**/*.md', '.workflow/**/*.json'], { cwd: root, exclude: ['.workflow/external/**'] }).sort()) {
     const text = readFileSync(resolve(root, file), 'utf8');
     for (const secret of findSecrets(text)) errors.push(`${relative(root, resolve(root, file))}: ${secret}らしき値を保存しないでください`);
   }
