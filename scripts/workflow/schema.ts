@@ -30,6 +30,7 @@ const manifest = object({
   schemaVersion: oneOf([1]), id: string, summary: string,
   state: oneOf(workflowStates),
   risk: nullable(oneOf(riskLevels)), classificationConfirmed: boolean,
+  lightweight: optional(object({ reason: string })),
   traits: object({
     behaviorChanged: nullable(boolean), publicApiChanged: nullable(boolean),
     architectureDecisionChanged: nullable(boolean), dataMigration: nullable(boolean),
@@ -38,7 +39,7 @@ const manifest = object({
   workflow: optional(object({ name: string, version: string, adapter: string, certified: boolean })),
   artifacts: object({ ticket: optional(string), productSpec: optional(string), changeSpec: optional(string), adr: optional(string) }),
   checks: array(object({ name: string, status: oneOf(['pending', 'passed', 'failed']), evidence: optional(string) })),
-  review: optional(object({ kind: oneOf(['agent', 'human']), approver: string, reviewedAt: string, commit: string })),
+  review: optional(object({ kind: oneOf(['agent', 'human']), approver: string, reviewedAt: string, commit: string, lightweightConfirmed: optional(boolean) })),
   emergencyException: optional(object({ reason: string, createdAt: string, expiresAt: string, followUpTicket: string, approvedBy: string })),
 });
 

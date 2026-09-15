@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: Superseded
 supersedes: ["0001"]
 ---
 
