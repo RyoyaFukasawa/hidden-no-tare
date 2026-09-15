@@ -1,5 +1,6 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -144,6 +145,120 @@ test('researchingのverifyは草案を許可し承認不備・本文変更を拒
   assert.equal(run('scripts/adr/check.ts').status, 0);
   writeFileSync(file, approved.replace('Body.', 'Changed.'));
   assert.equal(run('scripts/adr/check.ts').status, 1);
+});
+
+test('ADR依存は調査中の草案を許可しready以降を拒否する', t => {
+  const { root, manifest, path, save } = cliFixture(t, "console.log('fixture passed')");
+  Object.assign(manifest, { state: 'researching', adrDependencies: ['0001'] });
+  save();
+  writeFileSync(join(root, 'docs/adr/0001-decision.md'), '---\nstatus: Draft\n---\n\n# ADR-0001: Decision\n');
+  const run = (script: string) => spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  const research = run('scripts/verify.ts');
+  assert.equal(research.status, 0, research.stdout + research.stderr);
+  for (const state of ['ready', 'implementing', 'review', 'complete'] as const) {
+    manifest.state = state; save();
+    const original = readFileSync(path, 'utf8');
+    const result = run('scripts/verify.ts');
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /ADR依存.*0001.*本文承認/);
+    assert.equal(readFileSync(path, 'utf8'), original);
+  }
+});
+
+test('ADR成果物も依存として扱い不正な依存入力や成果物の代用を拒否する', t => {
+  const { root, manifest, save } = cliFixture(t, '');
+  manifest.state = 'implementing';
+  manifest.artifacts.adr = 'docs/adr/0001-decision.md';
+  writeFileSync(join(root, manifest.artifacts.adr), '---\nstatus: Draft\n---\n\n# ADR-0001: Decision\n');
+  save();
+  assert.ok(checkWorkflowRepository(root).some(error => /ADR依存.*0001.*本文承認/.test(error)));
+  manifest.artifacts.adr = 'ticket.md'; save();
+  assert.ok(checkWorkflowRepository(root).some(error => /ADR成果物/.test(error)));
+  delete manifest.artifacts.adr;
+  for (const value of [null, {}, '0001', [1], ['../0001'], [''], ['0001', '0001']]) {
+    Object.assign(manifest, { adrDependencies: value }); save();
+    assert.ok(checkWorkflowRepository(root).some(error => /adrDependencies/.test(error)), JSON.stringify(value));
+  }
+  manifest.adrDependencies = ['9999']; save();
+  assert.ok(checkWorkflowRepository(root).some(error => /ADR依存9999が存在しません/.test(error)));
+  delete manifest.adrDependencies;
+  manifest.traits.architectureDecisionChanged = true; save();
+  assert.ok(checkWorkflowRepository(root).some(error => /必要な成果物.*adr/.test(error)));
+});
+
+test('ADR依存の承認・失効・再承認とfinalizeの記録保持をCLIで確認する', t => {
+  const { root, git, manifest, path, save } = cliFixture(t, "console.log('fixture passed')");
+  const file = join(root, 'docs/adr/0001-decision.md');
+  const body = '\n# ADR-0001: Decision\n\nBody.\n';
+  // テスト専用の承認記録。実運用では人間が本文を承認した後だけ記録する。
+  const approved = (text: string) => '---\nstatus: Accepted\napprovedBy: "fixture-only"\n'
+    + 'approvedAt: "2026-09-15T00:00:00Z"\n'
+    + `approvedBodySha256: "${createHash('sha256').update(text).digest('hex')}"\n---\n${text}`;
+  const run = (script: string) => spawnSync(process.execPath, [script, ...(script.endsWith('finalize.ts') ? ['sample'] : [])], { cwd: root, encoding: 'utf8' });
+  const commit = () => {
+    git('add', '.'); git('commit', '--allow-empty', '-m', 'test: fixture approval');
+    manifest.review!.commit = git('rev-parse', 'HEAD'); save();
+  };
+  manifest.adrDependencies = ['0001'];
+  writeFileSync(file, approved(body));
+  writeFileSync(join(root, 'docs/adr/0002-other.md'), '---\nstatus: Draft\n---\n\n# ADR-0002: Other\n');
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  commit();
+  for (const state of ['ready', 'implementing', 'review', 'complete'] as const) {
+    manifest.state = state; save();
+    const result = run('scripts/verify.ts');
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  const mutations = [
+    ['草案', `---\nstatus: Draft\n---\n${body}`, /ADR依存.*本文承認/],
+    ['承認欠落', `---\nstatus: Accepted\n---\n${body}`, /承認記録/],
+    ['承認型不正', approved(body).replace('"fixture-only"', 'false'), /承認記録/],
+    ['誤字', approved(body).replace('Body.', 'Boddy.'), /本文が承認対象/],
+    ['整形', approved(body) + '\n', /本文が承認対象/],
+    ['リンク', approved(body) + '\n[Other](0002-other.md)\n', /本文が承認対象/],
+  ] as const;
+  for (const [name, content, diagnostic] of mutations) {
+    writeFileSync(file, content);
+    for (const state of ['implementing', 'complete'] as const) {
+      manifest.state = state; commit();
+      const before = readFileSync(path, 'utf8');
+      for (const script of ['scripts/verify.ts', ...(state === 'complete' ? ['scripts/workflow/finalize.ts'] : [])]) {
+        const result = run(script);
+        assert.equal(result.status, 1, name + result.stdout + result.stderr);
+        assert.match(result.stdout + result.stderr, diagnostic);
+        assert.equal(readFileSync(path, 'utf8'), before);
+        assert.equal(readFileSync(file, 'utf8'), content);
+      }
+    }
+  }
+  writeFileSync(file, approved(body + '\nReapproved fixture body.\n'));
+  assert.equal(run('scripts/adr/generate.ts').status, 0);
+  commit();
+  const result = run('scripts/workflow/finalize.ts');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(existsSync(path), false);
+  assert.equal(git('status', '--porcelain'), '');
+});
+
+test('検証中に依存ADRが失効しても完了を成功扱いしない', async t => {
+  for (const script of ['scripts/verify.ts', 'scripts/workflow/finalize.ts']) await t.test(script, child => {
+    const code = "const fs = require('node:fs'); const p = 'docs/adr/0001-decision.md'; fs.appendFileSync(p, '\\nChanged.\\n')";
+    const { root, git, manifest, path, save } = cliFixture(child, code);
+    const body = '\n# ADR-0001: Approval fixture\n\nBody.\n';
+    writeFileSync(join(root, 'docs/adr/0001-decision.md'), '---\nstatus: Accepted\napprovedBy: "fixture-only"\n'
+      + 'approvedAt: "2026-09-15T00:00:00Z"\n'
+      + 'approvedBodySha256: "de79e697f08e2691c08eb1356da8a5024422c8e54756c72cd17ee9843b6e81c3"\n'
+      + `---\n${body}`);
+    execFileSync(process.execPath, ['scripts/adr/generate.ts'], { cwd: root });
+    git('add', '.'); git('commit', '-m', 'test: approved dependency');
+    manifest.adrDependencies = ['0001']; manifest.review!.commit = git('rev-parse', 'HEAD'); save();
+    const before = readFileSync(path, 'utf8');
+    const result = spawnSync(process.execPath, [script, ...(script.endsWith('finalize.ts') ? ['sample'] : [])], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /本文が承認対象/);
+    assert.equal(readFileSync(path, 'utf8'), before);
+  });
 });
 
 function lightweightFixture(t: TestContext, projectCode = "console.log('fixture passed')") {

@@ -31,6 +31,7 @@ const manifest = object({
   state: oneOf(workflowStates),
   risk: nullable(oneOf(riskLevels)), classificationConfirmed: boolean,
   lightweight: optional(object({ reason: string })),
+  adrDependencies: optional(array(string)),
   traits: object({
     behaviorChanged: nullable(boolean), publicApiChanged: nullable(boolean),
     architectureDecisionChanged: nullable(boolean), dataMigration: nullable(boolean),

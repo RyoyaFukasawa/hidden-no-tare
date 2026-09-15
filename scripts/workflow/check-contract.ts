@@ -4,6 +4,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkConfig, checkManifest } from './contract.ts';
 import { loadConfig, loadManifest } from './io.ts';
+import { loadAdrs } from '../adr/adr.ts';
 
 const secretPatterns: [string, RegExp][] = [
   ['秘密鍵', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
@@ -51,6 +52,22 @@ export function checkWorkflowRepository(root: string, now = new Date()): string[
       if (file !== `.workflow/changes/${manifest.id}.json`) errors.push(`${file}: ファイル名と変更IDが一致しません`);
       else if (!findings.length) temporaryManifests.add(file);
       if (manifest.state === 'complete') completing = true;
+      if (manifest.adrDependencies?.length || manifest.artifacts.adr) {
+        const adrs = loadAdrs(resolve(root, 'docs/adr'));
+        const dependencies = new Set(manifest.adrDependencies);
+        if (manifest.artifacts.adr) {
+          const artifact = adrs.find(adr => manifest.artifacts.adr === `docs/adr/${adr.file}`);
+          if (!artifact) errors.push(`${file}: ADR成果物はdocs/adr/内の有効なADRのパスで指定してください`);
+          else dependencies.add(artifact.id);
+        }
+        for (const id of dependencies) {
+          const adr = adrs.find(adr => adr.id === id);
+          if (!adr) errors.push(`${file}: ADR依存${id}が存在しません`);
+          else if (!['unclassified', 'researching'].includes(manifest.state) && adr.status === 'Draft') {
+            errors.push(`${file}: ADR依存${id}には本文承認が必要です（Draft）`);
+          }
+        }
+      }
       for (const [kind, artifact] of Object.entries(manifest.artifacts)) {
         if (!artifact) continue;
         if (isAbsolute(artifact) || artifact.split(/[\\/]/).includes('..')) errors.push(`${file}: ${kind}のパスはリポジトリ相対にしてください`);

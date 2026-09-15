@@ -70,7 +70,7 @@ function parse(file: string, text: string): Adr {
   return { id: name[1], file, title: title[2].trim(), status, supersedes };
 }
 
-function load(): Adr[] {
+export function loadAdrs(directory: string): Adr[] {
   if (!existsSync(directory)) return [];
   const records: Adr[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -126,7 +126,7 @@ function render(records: Adr[]): string {
 
 export function run(mode: 'generate' | 'check'): void {
   try {
-    const expected = render(load());
+    const expected = render(loadAdrs(directory));
     const path = join(directory, 'README.md');
     if (mode === 'generate') {
       mkdirSync(directory, { recursive: true });

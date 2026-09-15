@@ -39,6 +39,7 @@ export interface WorkflowManifest {
   lightweight?: { reason: string };
   workflow?: { name: string; version: string; adapter: string; certified: boolean };
   artifacts: ArtifactMap;
+  adrDependencies?: string[];
   checks: CheckResult[];
   review?: Review;
   emergencyException?: EmergencyException;
@@ -94,6 +95,10 @@ export function checkManifest(value: unknown, config: WorkflowConfig, now = new 
   if (manifest.schemaVersion !== 1) errors.push('manifestのschemaVersionは1にしてください');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id)) errors.push('変更IDは小文字英数字とハイフンで記載してください');
   if (!manifest.summary.trim()) errors.push('変更概要が必要です');
+  if (manifest.adrDependencies) {
+    if (manifest.adrDependencies.some(id => !/^\d{4}$/.test(id))) errors.push('adrDependenciesは4桁のADR IDで指定してください');
+    if (new Set(manifest.adrDependencies).size !== manifest.adrDependencies.length) errors.push('adrDependenciesが重複しています');
+  }
   if (manifest.lightweight && !manifest.lightweight.reason.trim()) errors.push('軽微変更には空でない分類理由が必要です');
   if (!workflowStates.includes(manifest.state)) errors.push('不正な作業状態です');
   if (manifest.risk !== null && !riskLevels.includes(manifest.risk)) errors.push('不正なリスク分類です');
@@ -110,6 +115,10 @@ export function checkManifest(value: unknown, config: WorkflowConfig, now = new 
   if (manifest.lightweight && (manifest.risk === 'high' || manifest.traits.highRiskCategories.length > 0
     || Object.entries(manifest.traits).some(([key, value]) => key !== 'highRiskCategories' && value === true))) {
     errors.push('軽微変更の宣言が高リスクまたは変更特性と矛盾しています。通常扱いへ戻してください');
+  }
+  if (!['unclassified', 'researching', 'complete'].includes(manifest.state)
+    && manifest.traits.architectureDecisionChanged && !manifest.artifacts.adr?.trim()) {
+    errors.push('必要な成果物がありません: adr（本実装への移行前に本文承認が必要です）');
   }
   if (manifest.state === 'complete') {
     for (const key of requiredArtifacts(manifest.traits, manifest.lightweight !== undefined)) if (!manifest.artifacts[key]?.trim()) errors.push(`必要な成果物がありません: ${key}`);
