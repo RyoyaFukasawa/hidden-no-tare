@@ -9,7 +9,7 @@
 
 **Tech Stack:** Node.js >=24.12.0、TypeScript、node:test、標準crypto、Git。
 
-**Spec:** [変更仕様](spec.md)、[チケット01](issues/01-adr-approval-and-migration.md)。
+**Spec:** [変更仕様](../../../work/adr-policy/spec.md)、[チケット01](issues/01-adr-approval-and-migration.md)。
 
 ## Global Constraints
 
@@ -96,10 +96,13 @@ assert.equal(result.status, 0, result.stdout + result.stderr);
 
 ## Task 5: 独立レビュー・整理・コミット
 
-- [ ] code-reviewで変更開始点`5de52d991601aa0e7994bba6c4b6d36d4d08916f`からレビューする。
-- [ ] Standards・Specの独立レビューを並列で実施し、指摘はTDDで修正する。
-- [ ] 達成項目だけチェックし、01をdoneにして完了文書をarchiveへ移す。
+- [x] code-reviewで変更開始点`5de52d991601aa0e7994bba6c4b6d36d4d08916f`からレビューする。
+- [x] Standards・Specの独立レビューを並列で実施し、指摘はTDDで修正する。
+- [x] 達成項目だけチェックし、01をdoneにして完了文書をarchiveへ移す。
   共有仕様と02は作業中として残す。参照を更新する。
-- [ ] 整理後に`npm run verify`。最終SHA承認は一時マニフェストへ分離する。
-- [ ] `git add`に対象を明示し、`feat: validate ADR body approvals and migrate decisions`でコミット。
-- [ ] ユーザーへ結果と最終SHAを提示し、人間承認前はcomplete・finalizeにしない。
+- [x] 整理後に`npm run verify`。158テスト・8チケット・文書検証が成功した。
+- [x] `git add`に対象を明示し、`feat: validate ADR body approvals and migrate decisions`でコミット（b2526e0）。
+
+文書整理と任意実験fixtureの補正は続くコミットへまとめる。
+引き渡し時に結果と最終SHAを提示し、人間承認前はcomplete・finalizeにしない。
+最終SHA承認はこの計画のチェックではなく、一時マニフェストへ記録する。
