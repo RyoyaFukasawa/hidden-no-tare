@@ -14,6 +14,7 @@ export type RiskLevel = typeof riskLevels[number];
 export type CheckResult = { name: string; status: 'pending' | 'passed' | 'failed'; evidence?: string };
 export type Review = {
   kind: 'agent' | 'human'; approver: string; reviewedAt: string; commit: string;
+  lightweightConfirmed?: boolean;
 };
 export type EmergencyException = {
   reason: string; createdAt: string; expiresAt: string; followUpTicket: string; approvedBy: string;
@@ -35,6 +36,7 @@ export interface WorkflowManifest {
   risk: RiskLevel | null;
   classificationConfirmed: boolean;
   traits: ChangeTraits;
+  lightweight?: { reason: string };
   workflow?: { name: string; version: string; adapter: string; certified: boolean };
   artifacts: ArtifactMap;
   checks: CheckResult[];
@@ -50,8 +52,8 @@ export interface WorkflowConfig {
   projectChecks: { name: string; command: string; args: string[] }[];
 }
 
-export function requiredArtifacts(traits: ChangeTraits): (keyof ArtifactMap)[] {
-  const required: (keyof ArtifactMap)[] = ['ticket'];
+export function requiredArtifacts(traits: ChangeTraits, lightweight = false): (keyof ArtifactMap)[] {
+  const required: (keyof ArtifactMap)[] = lightweight ? [] : ['ticket'];
   if (traits.behaviorChanged) required.push('productSpec', 'changeSpec');
   if (traits.architectureDecisionChanged) required.push('adr');
   return required;
@@ -92,6 +94,7 @@ export function checkManifest(value: unknown, config: WorkflowConfig, now = new 
   if (manifest.schemaVersion !== 1) errors.push('manifestのschemaVersionは1にしてください');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id)) errors.push('変更IDは小文字英数字とハイフンで記載してください');
   if (!manifest.summary.trim()) errors.push('変更概要が必要です');
+  if (manifest.lightweight && !manifest.lightweight.reason.trim()) errors.push('軽微変更には空でない分類理由が必要です');
   if (!workflowStates.includes(manifest.state)) errors.push('不正な作業状態です');
   if (manifest.risk !== null && !riskLevels.includes(manifest.risk)) errors.push('不正なリスク分類です');
   if (manifest.workflow) {
@@ -104,8 +107,12 @@ export function checkManifest(value: unknown, config: WorkflowConfig, now = new 
   const categories: readonly string[] = [...mandatoryHighRiskCategories, ...config.additionalHighRiskCategories];
   for (const category of manifest.traits.highRiskCategories) if (!categories.includes(category)) errors.push(`未定義の高リスク分類です: ${category}`);
   if (manifest.traits.highRiskCategories.length && manifest.risk !== 'high') errors.push('高リスク分類がある変更はrisk: highが必要です');
+  if (manifest.lightweight && (manifest.risk === 'high' || manifest.traits.highRiskCategories.length > 0
+    || Object.entries(manifest.traits).some(([key, value]) => key !== 'highRiskCategories' && value === true))) {
+    errors.push('軽微変更の宣言が高リスクまたは変更特性と矛盾しています。通常扱いへ戻してください');
+  }
   if (manifest.state === 'complete') {
-    for (const key of requiredArtifacts(manifest.traits)) if (!manifest.artifacts[key]?.trim()) errors.push(`必要な成果物がありません: ${key}`);
+    for (const key of requiredArtifacts(manifest.traits, manifest.lightweight !== undefined)) if (!manifest.artifacts[key]?.trim()) errors.push(`必要な成果物がありません: ${key}`);
     if (!manifest.checks.length) errors.push('完了には検証結果が1件以上必要です');
     for (const check of manifest.checks) {
       if (check.status !== 'passed') errors.push(`検証が成功していません: ${check.name}`);
@@ -113,6 +120,7 @@ export function checkManifest(value: unknown, config: WorkflowConfig, now = new 
     }
     if (!manifest.review) errors.push('完了には意味的レビューが必要です');
     else {
+      if (manifest.lightweight && manifest.review.lightweightConfirmed !== true) errors.push('軽微変更には独立レビューによる分類確認が必要です');
       if (manifest.risk === 'high' && manifest.review.kind !== 'human') errors.push('高リスク変更には人間レビューが必要です');
       if (!manifest.review.approver.trim() || !validDate(manifest.review.reviewedAt)) errors.push('レビューには承認者とUTC日時が必要です');
       if (head && manifest.review.commit !== head) errors.push('承認後に差分が変わったためレビューが失効しています');

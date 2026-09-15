@@ -100,6 +100,176 @@ function cliFixture(t: TestContext, projectCode: string) {
   return result;
 }
 
+function lightweightFixture(t: TestContext, projectCode = "console.log('fixture passed')") {
+  const result = cliFixture(t, projectCode);
+  const { git, manifest, save } = result;
+  git('rm', 'ticket.md');
+  git('commit', '-m', 'test: no ticket for lightweight change');
+  Object.assign(manifest, {
+    risk: 'low',
+    lightweight: { reason: 'コメントの誤字だけを修正し、動作・仕様の意味は変わらない' },
+    traits: { behaviorChanged: false, publicApiChanged: false, architectureDecisionChanged: false, dataMigration: false, highRiskCategories: [] },
+    artifacts: {},
+    review: { kind: 'agent', approver: 'independent-fixture-reviewer', reviewedAt: '2026-09-15T00:00:00Z',
+      commit: git('rev-parse', 'HEAD'), lightweightConfirmed: true },
+  });
+  save();
+  return result;
+}
+
+test('軽微変更はチケットなしでverifyとfinalizeを通り、一時記録だけを削除する', t => {
+  const { root, path, git } = lightweightFixture(t);
+  const before = git('rev-parse', 'HEAD');
+  const verify = spawnSync(process.execPath, ['scripts/verify.ts'], { cwd: root, encoding: 'utf8' });
+  assert.equal(verify.status, 0, verify.stdout + verify.stderr);
+  assert.ok(existsSync(path));
+  const finalize = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(finalize.status, 0, finalize.stdout + finalize.stderr);
+  assert.equal(existsSync(path), false);
+  assert.equal(existsSync(join(root, 'ticket.md')), false);
+  assert.equal(existsSync(join(root, 'docs/archive')), false);
+  assert.equal(git('status', '--porcelain'), '');
+  assert.equal(git('rev-parse', 'HEAD'), before);
+});
+
+test('軽微変更の空白だけの分類理由は拒否し、記録を保持する', t => {
+  const { root, manifest, path, save } = lightweightFixture(t);
+  manifest.lightweight!.reason = ' \n\t'; save();
+  const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.notEqual(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout + result.stderr, /分類理由/);
+  assert.ok(existsSync(path));
+});
+
+test('軽微変更の分類を独立レビューが確認していなければ完了できない', async t => {
+  for (const confirmed of [undefined, false]) await t.test(String(confirmed), child => {
+    const { root, manifest, path, save } = lightweightFixture(child);
+    manifest.review!.lightweightConfirmed = confirmed; save();
+    const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /軽微変更.*レビュー/);
+    assert.ok(existsSync(path));
+  });
+});
+
+test('軽微変更と高リスク・変更特性の矛盾は拒否する', async t => {
+  for (const trait of ['high', 'highRiskCategories', 'behaviorChanged', 'publicApiChanged', 'architectureDecisionChanged', 'dataMigration'] as const) {
+    await t.test(trait, child => {
+      const { root, manifest, path, save } = lightweightFixture(child);
+      manifest.artifacts = { productSpec: 'AGENTS.md', changeSpec: 'AGENTS.md', adr: 'AGENTS.md' };
+      if (trait === 'high' || trait === 'highRiskCategories') {
+        manifest.risk = 'high'; manifest.review!.kind = 'human';
+        if (trait === 'highRiskCategories') manifest.traits.highRiskCategories = ['completion-contract'];
+      } else manifest.traits[trait] = true;
+      save();
+      const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+      assert.notEqual(result.status, 0, result.stdout + result.stderr);
+      assert.match(result.stdout + result.stderr, /軽微変更.*矛盾/);
+      assert.ok(existsSync(path));
+    });
+  }
+});
+
+test('軽微変更でも不正JSONや不足した検証・レビューをCLIで拒否する', async t => {
+  const cases: [string, Record<string, unknown>, RegExp][] = [
+    ['null宣言', { lightweight: null }, /lightweight/],
+    ['配列宣言', { lightweight: [] }, /lightweight/],
+    ['理由なし', { lightweight: {} }, /reason/],
+    ['理由の型不正', { lightweight: { reason: 1 } }, /reason/],
+    ['未対応の分類', { lightweight: { reason: '誤字', kind: 'refactor' } }, /未対応/],
+    ['検証なし', { checks: [] }, /検証結果/],
+    ['検証失敗', { checks: [{ name: 'fixture', status: 'failed', evidence: 'failed run' }] }, /検証が成功/],
+    ['未検証', { checks: [{ name: 'fixture', status: 'pending', evidence: 'not run' }] }, /検証が成功/],
+    ['証跡なし', { checks: [{ name: 'fixture', status: 'passed' }] }, /検証証跡/],
+    ['レビューなし', { review: undefined }, /レビュー/],
+    ['分類未確定', { classificationConfirmed: false }, /分類の確定/],
+    ['リスク未確定', { risk: null }, /リスク/],
+  ];
+  for (const [name, patch, diagnostic] of cases) await t.test(name, child => {
+    const { root, path, manifest } = lightweightFixture(child);
+    writeFileSync(path, JSON.stringify({ ...manifest, ...patch }));
+    const before = readFileSync(path, 'utf8');
+    for (const args of [['scripts/verify.ts'], ['scripts/workflow/finalize.ts', 'sample']]) {
+      const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8' });
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout + result.stderr, diagnostic);
+      assert.equal(readFileSync(path, 'utf8'), before);
+    }
+  });
+});
+
+test('軽微変更のレビュー分類確認はbooleanだけを受け付ける', t => {
+  const { root, path, manifest } = lightweightFixture(t);
+  writeFileSync(path, JSON.stringify({ ...manifest, review: { ...manifest.review, lightweightConfirmed: 'true' } }));
+  const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout + result.stderr, /lightweightConfirmed.*boolean/);
+  assert.ok(existsSync(path));
+});
+
+test('軽微変更の宣言を外して通常扱いへ戻すとチケットが必要になる', t => {
+  const { root, manifest, path, git, save } = lightweightFixture(t);
+  delete manifest.lightweight;
+  manifest.review!.lightweightConfirmed = false;
+  save();
+  const denied = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(denied.status, 1, denied.stdout + denied.stderr);
+  assert.match(denied.stdout + denied.stderr, /成果物.*ticket/);
+  assert.ok(existsSync(path));
+  writeFileSync(join(root, 'ticket.md'), '# Reviewed normal work\n');
+  git('add', 'ticket.md'); git('commit', '-m', 'test: normal change ticket');
+  manifest.artifacts.ticket = 'ticket.md';
+  manifest.review!.commit = git('rev-parse', 'HEAD'); save();
+  const accepted = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(accepted.status, 0, accepted.stdout + accepted.stderr);
+  assert.equal(existsSync(path), false);
+});
+
+test('軽微変更の宣言がない従来形式は低リスクでもチケットを要求する', t => {
+  const { root, manifest, path, save } = lightweightFixture(t);
+  delete manifest.lightweight;
+  delete manifest.review!.lightweightConfirmed;
+  save();
+  const result = spawnSync(process.execPath, ['scripts/verify.ts'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout + result.stderr, /成果物.*ticket/);
+  assert.ok(existsSync(path));
+});
+
+test('軽微変更も承認後のHEAD・staged・unstaged・untracked変更を拒否する', async t => {
+  for (const change of ['HEAD', 'staged', 'unstaged', 'untracked']) await t.test(change, child => {
+    const { root, git, path } = lightweightFixture(child);
+    if (change === 'HEAD') git('commit', '--allow-empty', '-m', 'test: invalidate approval');
+    if (change === 'staged' || change === 'unstaged') writeFileSync(join(root, 'AGENTS.md'), '# changed\n');
+    if (change === 'staged') git('add', 'AGENTS.md');
+    if (change === 'untracked') writeFileSync(join(root, 'new.txt'), 'new');
+    for (const args of [['scripts/verify.ts'], ['scripts/workflow/finalize.ts', 'sample']]) {
+      const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8' });
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout + result.stderr, change === 'HEAD' ? /失効/ : /未コミット変更/);
+      assert.ok(existsSync(path));
+    }
+  });
+});
+
+test('軽微変更も検証中の生成物・記録変更・削除・検証失敗を拒否する', async t => {
+  const cases: [string, string, RegExp][] = [
+    ['生成物', "require('node:fs').writeFileSync('generated.txt', 'unreviewed')", /未コミット変更/],
+    ['記録変更', "const fs=require('node:fs');const p='.workflow/changes/sample.json';const m=JSON.parse(fs.readFileSync(p));m.lightweight.reason='rewritten';fs.writeFileSync(p,JSON.stringify(m));", /検証中.*マニフェスト/],
+    ['記録削除', "require('node:fs').unlinkSync('.workflow/changes/sample.json')", /検証中.*マニフェスト/],
+    ['検証失敗', "process.exit(1)", /fixture/],
+  ];
+  for (const [name, code, diagnostic] of cases) {
+    for (const args of [['scripts/verify.ts'], ['scripts/workflow/finalize.ts', 'sample']]) await t.test(`${name}: ${args[0]}`, child => {
+      const { root, path } = lightweightFixture(child, code);
+      const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8' });
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout + result.stderr, diagnostic);
+      assert.equal(existsSync(path), name !== '記録削除');
+    });
+  }
+});
+
 test('検証コマンドが未コミット変更を生成したらfinalizeせずマニフェストを保持する', t => {
   const { root, path } = cliFixture(t, "require('node:fs').writeFileSync('generated.txt', 'changed during verification')");
   const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
