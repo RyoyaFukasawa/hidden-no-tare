@@ -12,7 +12,7 @@ Mattが要求する接続情報を共通の規約から切り離し、必要な�
 
 ## 依存チケット
 
-- [02: 外部接続を安全に準備・撤去し、未移管データを残した完了を拒否する](02-external-connection-lifecycle.md)
+- [02: 外部接続を安全に準備・撤去し、未移管データを残した完了を拒否する](../../../docs/archive/2026-09-15-external-connections/issues/02-external-connection-lifecycle.md)
 
 01への依存はない。文書量の測定は検証ログの簡潔化と独立して行える。
 

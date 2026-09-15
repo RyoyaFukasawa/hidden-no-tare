@@ -80,10 +80,11 @@ function overlap(a: string, b: string): boolean {
   a = a.toLowerCase(); b = b.toLowerCase();
   return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
 }
-function ensureDirectory(root: string, path: string, created: string[]): void {
+function ensureDirectory(root: string, path: string): void {
+  if (path === '.') return;
   for (const directory of [...parents(path), path]) {
     safePath(root, directory);
-    if (!stat(root, directory)) { mkdirSync(resolve(root, directory)); created.push(directory); }
+    if (!stat(root, directory)) mkdirSync(resolve(root, directory));
     else if (!stat(root, directory)?.isDirectory()) fail(`ディレクトリではありません: ${directory}`);
   }
 }
@@ -117,7 +118,11 @@ function active(root: string, ownLock = false) {
     const id = name.slice(0, -5); idCheck(id);
     loaded.set(id, loadState(root, id));
   }
-  for (const id of entries(root, area)) if (!loaded.has(id)) fail(`所有不明の領域: ${area}/${id}`);
+  for (const id of entries(root, area)) {
+    if (!loaded.has(id)) fail(`所有不明の領域: ${area}/${id}`);
+    safePath(root, `${area}/${id}`);
+    if (!stat(root, `${area}/${id}`)?.isDirectory()) fail(`専用領域は通常ディレクトリにしてください: ${area}/${id}`);
+  }
   const targets: string[] = [];
   for (const item of loaded.values()) for (const path of item.def.targets.keys()) {
     if (targets.some(other => overlap(path, other))) fail(`接続の所有パスが競合しています: ${path}`);
@@ -161,14 +166,14 @@ function attach(root: string, id: string): void {
     if (stat(root, path)) fail(`既存パスは上書きしません: ${path}`);
     for (const other of connections.values()) if ([...other.def.targets.keys()].some(p => overlap(path, p))) fail(`他接続と競合しています: ${path}`);
   }
-  ensureDirectory(root, states, []); ensureDirectory(root, area, []);
+  ensureDirectory(root, states); ensureDirectory(root, area);
   const directories = [...new Set([`${area}/${id}`, ...[...def.targets.keys()].flatMap(parents)])].filter(d => !stat(root, d));
   const state: State = { schemaVersion: 1, id, definitionHash: def.hash, phase: 'preparing', directories };
   const statePath = resolve(root, `${states}/${id}.json`);
   writeFileSync(statePath, JSON.stringify(state), { flag: 'wx' });
-  ensureDirectory(root, `${area}/${id}`, []);
+  ensureDirectory(root, `${area}/${id}`);
   for (const [path, content] of def.targets) {
-    ensureDirectory(root, dirname(path), []);
+    ensureDirectory(root, dirname(path));
     writeFileSync(resolve(root, path), content, { flag: 'wx' });
   }
   state.phase = 'active'; writeFileSync(statePath, JSON.stringify(state));
@@ -195,7 +200,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     if (realpathSync(git(root, 'rev-parse', '--show-toplevel').trim()) !== root) fail('worktreeのルートで実行してください');
     const lock = `${states}/.lock`;
     safePath(root, lock); untrackedIgnored(root, lock);
-    ensureDirectory(root, states, []);
+    ensureDirectory(root, states);
     try { mkdirSync(resolve(root, lock)); }
     catch { fail('接続操作のロックを取得できません。別操作や残存ロックを確認してください'); }
     try { if (command === 'attach') attach(root, id); else detach(root, id); }

@@ -134,6 +134,29 @@ test('既存固定ファイルと他接続の予約パスは上書きも奪取�
   assert.equal(f.connection('attach', 'other').status, 0);
 });
 
+test('ルート直下の互換ファイルも生成し、未変更なら撤去できる', t => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, '.gitignore'), readFileSync(join(f.root, '.gitignore'), 'utf8') + '/PLAN.md\n');
+  f.define('demo', { 'PLAN.md': '# Connection plan\n' });
+  const result = f.connection('attach', 'demo'); assert.equal(result.status, 0, result.output);
+  assert.equal(readFileSync(join(f.root, 'PLAN.md'), 'utf8'), '# Connection plan\n');
+  const removed = f.connection('detach', 'demo'); assert.equal(removed.status, 0, removed.output);
+  assert.ok(!existsSync(join(f.root, 'PLAN.md')));
+});
+
+for (const kind of ['symlink', 'file']) {
+  test(`生成ファイルなしの接続でも専用領域の置換を通常verifyで拒否する: ${kind}`, t => {
+    const f = fixture(t); f.define('demo', {});
+    const path = join(f.root, '.workflow/connections/demo.json');
+    writeFileSync(path, JSON.stringify({ schemaVersion: 1, id: 'demo', files: {}, compatibility: {} }));
+    assert.equal(f.connection('attach', 'demo').status, 0);
+    const area = join(f.root, '.workflow/external/demo'); rmSync(area, { recursive: true });
+    if (kind === 'symlink') symlinkSync(join(f.root, 'docs'), area, 'dir'); else writeFileSync(area, '# Keep');
+    const result = f.run('scripts/workflow/check-contract.ts'); assert.notEqual(result.status, 0, result.output);
+    assert.ok(existsSync(area));
+  });
+}
+
 test('変更済みの生成物と空の作業ディレクトリは自動削除せず、手動移管後に撤去できる', t => {
   const f = fixture(t); f.define(); assert.equal(f.connection('attach', 'demo').status, 0);
   const config = join(f.root, '.workflow/external/demo/config.md'); writeFileSync(config, '# Valuable');
