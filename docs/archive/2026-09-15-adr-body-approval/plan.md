@@ -9,7 +9,7 @@
 
 **Tech Stack:** Node.js >=24.12.0、TypeScript、node:test、標準crypto、Git。
 
-**Spec:** [変更仕様](../../../work/adr-policy/spec.md)、[チケット01](issues/01-adr-approval-and-migration.md)。
+**Spec:** [変更仕様](../2026-09-15-adr-dependency-gates/spec.md)、[チケット01](issues/01-adr-approval-and-migration.md)。
 
 ## Global Constraints
 

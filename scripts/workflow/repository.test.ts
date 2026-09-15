@@ -168,6 +168,7 @@ test('ADR依存は調査中の草案を許可しready以降を拒否する', t =
 
 test('ADR成果物も依存として扱い不正な依存入力や成果物の代用を拒否する', t => {
   const { root, manifest, save } = cliFixture(t, '');
+  const checkCli = () => spawnSync(process.execPath, ['scripts/workflow/check-contract.ts'], { cwd: root, encoding: 'utf8' });
   manifest.state = 'implementing';
   manifest.artifacts.adr = 'docs/adr/0001-decision.md';
   writeFileSync(join(root, manifest.artifacts.adr), '---\nstatus: Draft\n---\n\n# ADR-0001: Decision\n');
@@ -178,10 +179,16 @@ test('ADR成果物も依存として扱い不正な依存入力や成果物の�
   delete manifest.artifacts.adr;
   for (const value of [null, {}, '0001', [1], ['../0001'], [''], ['0001', '0001']]) {
     Object.assign(manifest, { adrDependencies: value }); save();
-    assert.ok(checkWorkflowRepository(root).some(error => /adrDependencies/.test(error)), JSON.stringify(value));
+    const result = checkCli();
+    assert.equal(result.status, 1, JSON.stringify(value));
+    assert.match(result.stdout + result.stderr, /adrDependencies/);
   }
   manifest.adrDependencies = ['9999']; save();
-  assert.ok(checkWorkflowRepository(root).some(error => /ADR依存9999が存在しません/.test(error)));
+  const missing = checkCli();
+  assert.equal(missing.status, 1);
+  assert.match(missing.stdout + missing.stderr, /ADR依存9999が存在しません/);
+  manifest.adrDependencies = []; save();
+  assert.equal(checkCli().status, 0);
   delete manifest.adrDependencies;
   manifest.traits.architectureDecisionChanged = true; save();
   assert.ok(checkWorkflowRepository(root).some(error => /必要な成果物.*adr/.test(error)));
