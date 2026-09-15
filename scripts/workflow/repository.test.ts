@@ -2,7 +2,7 @@ import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,7 @@ function fixture(t: TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'completion-git-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\nignored/\n');
+  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\n.workflow/logs/\nignored/\n');
   writeFileSync(join(root, 'AGENTS.md'), '# 接続\n\nworkflow:prepare verify\n');
   writeFileSync(join(root, 'workflow.config.json'), JSON.stringify({ schemaVersion: 1, exceptionDefaultDays: 7,
     exceptionMaximumDays: 30, additionalHighRiskCategories: [], projectChecks: [] }));
@@ -100,6 +100,101 @@ function cliFixture(t: TestContext, projectCode: string) {
   manifest.review!.commit = git('rev-parse', 'HEAD'); save();
   return result;
 }
+
+test('verifyは成功出力を要約し詳細をGit管理外のログへ保存する', t => {
+  const { root, git } = cliFixture(t, "console.log('DETAIL-START'); console.log('passing detail\\n'.repeat(1000)); console.log('DETAIL-END')");
+  const result = spawnSync(process.execPath, ['scripts/verify.ts'], { cwd: root, encoding: 'utf8' });
+  const output = result.stdout + result.stderr;
+  assert.equal(result.status, 0, output);
+  assert.doesNotMatch(output, /passing detail/);
+  assert.ok(Buffer.byteLength(output) < 2000);
+  assert.match(output, /Log: \.workflow\/logs\//);
+  const logs = readdirSync(join(root, '.workflow/logs')).filter(file => file.endsWith('.log'));
+  const content = logs.map(file => readFileSync(join(root, '.workflow/logs', file), 'utf8')).join('\n');
+  assert.match(content, /DETAIL-START/);
+  assert.match(content, /DETAIL-END/);
+  assert.equal(git('status', '--porcelain'), '');
+});
+
+test('finalizeも出力を要約し成功時だけマニフェストを削除する', t => {
+  const { root, path } = cliFixture(t, "console.log('FINALIZE-DETAIL\\n'.repeat(1000))");
+  const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0);
+  assert.ok(!result.stdout.includes('FINALIZE-DETAIL'), '成功詳細はログだけに残す');
+  assert.match(result.stdout, /Log: \.workflow\/logs\//);
+  assert.equal(existsSync(path), false);
+});
+
+test('過大な失敗出力は先頭と末尾を残し元の終了コードと記録を保持する', async t => {
+  for (const entry of ['scripts/verify.ts', 'scripts/workflow/finalize.ts']) await t.test(entry, child => {
+    const code = "const fs=require('node:fs');fs.writeSync(1,'OUTPUT-HEAD\\n');fs.writeSync(1,Buffer.alloc(2*1024*1024,120));fs.writeSync(1,'\\nOUTPUT-TAIL\\n');process.exit(7)";
+    const { root, path } = cliFixture(child, code);
+    const before = readFileSync(path, 'utf8');
+    const result = spawnSync(process.execPath, [entry, ...(entry.endsWith('finalize.ts') ? ['sample'] : [])], { cwd: root, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
+    const output = result.stdout + result.stderr;
+    assert.equal(result.status, 7);
+    assert.ok(Buffer.byteLength(output) < 10000, '失敗表示も上限付き');
+    assert.match(output, /OUTPUT-HEAD/);
+    assert.match(output, /OUTPUT-TAIL/);
+    assert.match(output, /省略/);
+    const files = [...output.matchAll(/Log: (\.workflow\/logs\/[^\s]+)/g)].map(match => match[1]);
+    const log = readFileSync(join(root, files.at(-1)!));
+    assert.ok(log.length <= 1024 * 1024, '単独ログ上限1MiB');
+    assert.match(log.toString(), /OUTPUT-HEAD/);
+    assert.match(log.toString(), /OUTPUT-TAIL/);
+    assert.match(log.toString(), /省略/);
+    assert.equal(readFileSync(path, 'utf8'), before);
+  });
+});
+
+test('ログは10件・合計5MiB以内に整理し管理外のファイルを保持する', t => {
+  const code = "require('node:fs').writeSync(1,Buffer.alloc(2*1024*1024,120));process.exit(1)";
+  const { root, path } = cliFixture(t, code);
+  const directory = join(root, '.workflow/logs');
+  mkdirSync(directory);
+  writeFileSync(join(directory, 'notes.txt'), 'user notes');
+  let oldest = '';
+  for (let index = 0; index < 7; index++) {
+    const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.ok(existsSync(path));
+    if (!index) oldest = /Log: (\.workflow\/logs\/[^\s]+)/.exec(result.stdout)![1];
+  }
+  const logs = readdirSync(directory).filter(file => file.endsWith('.log'));
+  assert.ok(logs.length <= 10, '件数上限');
+  assert.ok(logs.reduce((sum, file) => sum + statSync(join(directory, file)).size, 0) <= 5 * 1024 * 1024, '容量上限');
+  assert.equal(existsSync(join(root, oldest)), false, '古いログから削除');
+  assert.equal(readFileSync(join(directory, 'notes.txt'), 'utf8'), 'user notes');
+});
+
+test('ログ保存障害や保存先symlinkでは成功扱いせず記録と領域外データを保持する', async t => {
+  for (const kind of ['file', 'symlink']) await t.test(kind, child => {
+    const { root, path } = cliFixture(child, "console.log('passed')");
+    const outside = mkdtempSync(join(tmpdir(), 'log-outside-'));
+    child.after(() => rmSync(outside, { recursive: true, force: true }));
+    writeFileSync(join(outside, 'keep.txt'), 'keep');
+    if (kind === 'file') writeFileSync(join(root, '.workflow/logs'), 'not a directory');
+    else symlinkSync(outside, join(root, '.workflow/logs'), 'dir');
+    const before = readFileSync(path, 'utf8');
+    for (const entry of ['scripts/verify.ts', 'scripts/workflow/finalize.ts']) {
+      const result = spawnSync(process.execPath, [entry, ...(entry.endsWith('finalize.ts') ? ['sample'] : [])], { cwd: root, encoding: 'utf8' });
+      assert.equal(result.status, 1);
+      assert.match(result.stdout + result.stderr, /検証ログ.*保存/);
+      assert.equal(readFileSync(path, 'utf8'), before);
+      assert.deepEqual(readdirSync(outside), ['keep.txt']);
+    }
+  });
+});
+
+test('検証後の完了境界の失敗も診断ログへ残す', t => {
+  const { root, path } = cliFixture(t, "require('node:fs').writeFileSync('generated.txt','unreviewed')");
+  const before = readFileSync(path, 'utf8');
+  const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  const files = [...result.stdout.matchAll(/Log: (\.workflow\/logs\/[^\s]+)/g)].map(match => match[1]);
+  assert.match(readFileSync(join(root, files.at(-1)!), 'utf8'), /未コミット変更/);
+  assert.equal(readFileSync(path, 'utf8'), before);
+});
 
 test('researchingのverifyは草案を許可し承認不備・本文変更を拒否する', t => {
   const { root, manifest, path, save } = cliFixture(t, "console.log('fixture passed')");

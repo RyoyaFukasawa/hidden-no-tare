@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { reportVerificationFailure, runLogged } from './workflow/verification-log.ts';
 import { fileURLToPath } from 'node:url';
 import { checkWorkflowRepository } from './workflow/check-contract.ts';
 import { captureCompletionSnapshot } from './workflow/completion-snapshot.ts';
@@ -15,7 +15,7 @@ try {
     ['scripts/workflow/verify-project.ts'],
   ];
   for (const args of commands) {
-    const result = spawnSync(process.execPath, args, { cwd, stdio: 'inherit' });
+    const result = await runLogged(cwd, args.join(' '), process.execPath, args);
     if (result.error) throw result.error;
     if (result.status !== 0) process.exit(result.status ?? 1);
   }
@@ -23,6 +23,6 @@ try {
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('Verification passed (contract, project checks, work items, ADRs and Markdown/links).');
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  reportVerificationFailure(fileURLToPath(new URL('../', import.meta.url)), error);
   process.exitCode = 1;
 }

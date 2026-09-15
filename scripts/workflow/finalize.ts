@@ -2,12 +2,13 @@ import { existsSync, realpathSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadManifest } from './io.ts';
-import { spawnSync } from 'node:child_process';
+import { reportVerificationFailure, runLogged } from './verification-log.ts';
 import { checkWorkflowRepository } from './check-contract.ts';
 import { captureCompletionSnapshot } from './completion-snapshot.ts';
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  try {
   const id = process.argv[2];
   if (!id) { console.error('usage: npm run workflow:finalize -- <change-id>'); process.exitCode = 1; }
   else {
@@ -18,9 +19,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
       if (manifest.state !== 'complete') { console.error('manifestをstate: completeにしてからfinalizeしてください'); process.exitCode = 1; }
       else {
         const checkSnapshot = captureCompletionSnapshot(projectRoot);
-        const contract = spawnSync('npm', ['run', 'verify:contract'], { cwd: projectRoot, stdio: 'inherit', shell: false });
+        const contract = await runLogged(projectRoot, 'verify:contract', 'npm', ['run', 'verify:contract']);
         const project = contract.status === 0
-          ? spawnSync('npm', ['run', 'verify:project'], { cwd: projectRoot, stdio: 'inherit', shell: false })
+          ? await runLogged(projectRoot, 'verify:project', 'npm', ['run', 'verify:project'])
           : undefined;
         const launchError = contract.error ?? project?.error;
         if (launchError) {
@@ -32,7 +33,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         else {
           const errors = [...checkSnapshot(), ...checkWorkflowRepository(projectRoot)];
           if (errors.length) {
-            for (const error of errors) console.error('ERROR ' + error);
+            reportVerificationFailure(projectRoot, errors.join('\n'));
             process.exitCode = 1;
           } else {
             rmSync(path);
@@ -41,5 +42,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
         }
       }
     }
+  }
+  } catch (error) {
+    reportVerificationFailure(projectRoot, error);
+    process.exitCode = 1;
   }
 }
