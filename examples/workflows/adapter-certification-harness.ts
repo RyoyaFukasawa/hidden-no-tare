@@ -48,7 +48,7 @@ export function runCertificationHarness(projectRoot: string, outputPath: string)
         mkdirSync(dirname(join(fixture, document)), { recursive: true });
         cpSync(join(root, document), join(fixture, document));
       }
-      writeFileSync(join(fixture, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\n');
+      writeFileSync(join(fixture, '.gitignore'), 'node_modules/\n.workflow/changes/*.json\n.workflow/logs/\n');
       cpSync(join(root, 'package.json'), join(fixture, 'package.json'));
       symlinkSync(realpathSync(join(root, 'node_modules')), join(fixture, 'node_modules'), 'dir');
       mkdirSync(join(fixture, 'adapters'), { recursive: true });
