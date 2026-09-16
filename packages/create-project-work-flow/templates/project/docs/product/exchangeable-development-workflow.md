@@ -331,4 +331,3 @@ Matt接続なし・定義削除後でも通常のverifyを実行でき、固有C
 
 - 判断の理由を記録したADR：[ADR-0004](../adr/0004-workflow-contract-ownership.md)
 - 成果物テンプレート：[テンプレート一覧](../templates/README.md)
-- 同一課題の実装と共通完了契約への到達：[比較実験](../archive/2026-09-14-workflow-exchange-proof/comparison.md)

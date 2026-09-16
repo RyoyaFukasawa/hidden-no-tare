@@ -8,8 +8,9 @@
 
 ## 初期セットアップ
 
-正式な導入対象は新規Gitリポジトリです。このテンプレートから作成してcloneし、
-リポジトリルートで実行してください。GitのHEADになる初回コミットが必要です。
+正式な導入対象は新規Gitリポジトリです。別プロジェクトへ導入するときは、
+公開npmパッケージの固定版CLIを初回コミット済みのリポジトリで実行します。
+既存コードがあるリポジトリへの途中導入は対象外です。
 
 - Node.js 24.12.0以上の24系と同梱npm（開発確認: Node.js 24.19.0）。
 - Git 2.28以上（worktreeと初期ブランチ指定を使用）。
@@ -34,6 +35,26 @@ lychee --version
 npm ci
 npm run verify
 ```
+
+### 別プロジェクトへの初期導入
+
+公開npmパッケージの固定版を、導入先の新規リポジトリで実行します。
+
+```sh
+cd ../new-project
+git init --initial-branch=main
+git add README.md
+git commit -m "chore: initialize repository"
+npm create project-work-flow@0.1.0 -- --package-manager npm --install
+npm run verify
+npm run workflow:prepare -- initial-change "最初の変更"
+```
+
+pnpmを使う場合は、`--package-manager pnpm --install`を指定して同じCLIを実行します。
+既存の`.gitignore`へ必要な除外規則を追記する場合は、差分を確認して`--accept-existing`を指定します。
+生成前の確認には`--dry-run`を使えます。CLIは利用者のコミットを作成しません。
+更新は固定版のnpmパッケージをCLIとして実行します。
+`npm exec --package create-project-work-flow@0.1.1 -- project-work-flow update`の形式です。
 
 初回のパッケージ導入にはネットワークが必要です。通常のリンク検証はオフラインです。
 アプリを追加したら`workflow.config.json`の`projectChecks`にlint・型チェック・テストを接続します。
