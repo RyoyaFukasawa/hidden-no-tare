@@ -1,0 +1,5 @@
+node_modules/
+.workflow/logs/
+.workflow/external/
+.workflow/connection-state/
+.DS_Store

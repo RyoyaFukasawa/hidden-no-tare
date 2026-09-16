@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "exceptionDefaultDays": 7,
+  "exceptionMaximumDays": 30,
+  "additionalHighRiskCategories": [],
+  "projectChecks": []
+}

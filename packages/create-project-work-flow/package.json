@@ -1,0 +1,16 @@
+{
+  "name": "create-project-work-flow",
+  "version": "0.1.0",
+  "description": "Initialize the exchangeable development workflow in a new Git repository.",
+  "type": "module",
+  "bin": {
+    "project-work-flow": "dist/cli.js"
+  },
+  "files": ["dist", "templates", "package.json"],
+  "scripts": {
+    "build": "node ../../node_modules/typescript/bin/tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  }
+}

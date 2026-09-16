@@ -1,0 +1,8 @@
+# verifyでは--offlineを渡してローカルリンクを検証する。
+# 外部URLも確認する場合は npm run lint:links:online を使う。
+no_progress = true
+include_fragments = "full"
+timeout = 20
+max_retries = 1
+max_concurrency = 8
+include_verbatim = false
