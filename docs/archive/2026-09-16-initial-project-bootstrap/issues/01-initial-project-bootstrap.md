@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # 01: 新規Gitリポジトリ向け初期セットアップCLIを追加する
