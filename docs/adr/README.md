@@ -6,3 +6,4 @@
 | --- | --- | --- | --- | --- |
 | 0004 | [開発手順から契約を分離し、人間とCLIで承認の責務を分担する](0004-workflow-contract-ownership.md) | Accepted | — | — |
 | 0005 | [新規リポジトリ向け初期セットアップを独立CLIで提供する](0005-initial-project-bootstrap-cli.md) | Accepted | — | — |
+| 0006 | [初期セットアップCLIを公開npmパッケージで配布する](0006-public-npm-distribution-for-bootstrap-cli.md) | Draft | — | — |

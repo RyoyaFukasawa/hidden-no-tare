@@ -38,15 +38,14 @@ npm run verify
 
 ### 別プロジェクトへの初期導入
 
-このリポジトリでCLIのtarballを作り、導入先の新規リポジトリで実行します。
+公開npmパッケージの固定版を、導入先の新規リポジトリで実行します。
 
 ```sh
-npm run setup:pack
 cd ../new-project
 git init --initial-branch=main
 git add README.md
 git commit -m "chore: initialize repository"
-npm exec --package ../hidden-no-tare/create-project-work-flow-0.1.0.tgz -- project-work-flow init --package-manager npm --install
+npm create project-work-flow@0.1.0 -- --package-manager npm --install
 npm run verify
 npm run workflow:prepare -- initial-change "最初の変更"
 ```
@@ -54,8 +53,8 @@ npm run workflow:prepare -- initial-change "最初の変更"
 pnpmを使う場合は、`--package-manager pnpm --install`を指定して同じCLIを実行します。
 既存の`.gitignore`へ必要な除外規則を追記する場合は、差分を確認して`--accept-existing`を指定します。
 生成前の確認には`--dry-run`を使えます。CLIは利用者のコミットを作成しません。
-更新は固定tarballをCLIと`--from`の両方に指定して実行します。
-`npm exec --package <新しいtarball> -- project-work-flow update --from <新しいtarball>`の形式です。
+更新は固定版のnpmパッケージをCLIとして実行します。
+`npm exec --package create-project-work-flow@0.1.1 -- project-work-flow update`の形式です。
 
 初回のパッケージ導入にはネットワークが必要です。通常のリンク検証はオフラインです。
 アプリを追加したら`workflow.config.json`の`projectChecks`にlint・型チェック・テストを接続します。
