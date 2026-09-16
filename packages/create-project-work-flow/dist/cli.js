@@ -7,7 +7,6 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const FRAMEWORK_NAME = 'project-work-flow';
-const FRAMEWORK_VERSION = '0.1.0';
 const MANIFEST_PATH = '.workflow/setup-manifest.json';
 const PACKAGE_MANAGERS = new Set(['npm', 'pnpm']);
 function fail(message) {
@@ -18,7 +17,6 @@ function parseOptions(argv) {
     let commandSeen = false;
     let projectName;
     let packageManager;
-    let from;
     let install = false;
     let dryRun = false;
     let acceptExisting = false;
@@ -43,14 +41,12 @@ function parseOptions(argv) {
             acceptExisting = true;
             continue;
         }
-        if (argument === '--project-name' || argument === '--package-manager' || argument === '--from') {
+        if (argument === '--project-name' || argument === '--package-manager') {
             const value = argv[++index];
             if (!value || value.startsWith('--'))
                 fail(`${argument}には値が必要です`);
             if (argument === '--project-name')
                 projectName = value;
-            else if (argument === '--from')
-                from = value;
             else {
                 if (!PACKAGE_MANAGERS.has(value))
                     fail('パッケージマネージャーはnpmまたはpnpmで指定してください');
@@ -64,9 +60,7 @@ function parseOptions(argv) {
         }
         fail(`未対応の引数です: ${argument}`);
     }
-    if (command === 'init' && from)
-        fail('--fromはupdateで指定してください');
-    return { command, projectName, packageManager, install, dryRun, from, acceptExisting };
+    return { command, projectName, packageManager, install, dryRun, acceptExisting };
 }
 function gitOutput(root, args) {
     try {
@@ -156,45 +150,20 @@ async function choosePackageManager(root, selected) {
 function bundledTemplateRoot() {
     return fileURLToPath(new URL('../templates/project/', import.meta.url));
 }
-function sourceTemplateRoot(source, requireTarball = false) {
-    if (!source)
-        return { root: bundledTemplateRoot(), version: FRAMEWORK_VERSION };
-    const absolute = resolve(source);
-    if (requireTarball && (!absolute.endsWith('.tgz') || !existsSync(absolute) || !lstatSync(absolute).isFile())) {
-        fail('更新元は固定版の.tgz tarballで指定してください');
-    }
-    if (!requireTarball && existsSync(join(absolute, 'templates/project'))) {
-        return { root: join(absolute, 'templates/project'), version: FRAMEWORK_VERSION };
-    }
-    if (!requireTarball && existsSync(join(absolute, 'package/templates/project'))) {
-        return { root: join(absolute, 'package/templates/project'), version: FRAMEWORK_VERSION };
-    }
-    if (!existsSync(absolute))
-        fail(`更新元が見つかりません: ${source}`);
-    const extraction = mkdtempSync(join(tmpdir(), 'project-work-flow-update-'));
-    const result = spawnSync('tar', ['-xzf', absolute, '-C', extraction], { encoding: 'utf8' });
-    if (result.error || result.status !== 0) {
-        rmSync(extraction, { recursive: true, force: true });
-        fail(`更新元tarballを展開できません: ${result.stderr || result.error?.message || 'tar failed'}`);
-    }
-    const root = join(extraction, 'package/templates/project');
-    if (!existsSync(root)) {
-        rmSync(extraction, { recursive: true, force: true });
-        fail('更新元tarballにtemplates/projectがありません');
-    }
-    let version;
+function packageMetadata() {
+    const path = fileURLToPath(new URL('../package.json', import.meta.url));
     try {
-        const packageJson = JSON.parse(readFileSync(join(extraction, 'package/package.json'), 'utf8'));
-        if (packageJson.name !== 'create-project-work-flow' || typeof packageJson.version !== 'string' || !packageJson.version.trim()) {
-            throw new Error('package metadata is invalid');
-        }
-        version = packageJson.version;
+        const value = JSON.parse(readFileSync(path, 'utf8'));
+        if (value.name !== 'create-project-work-flow' || typeof value.version !== 'string' || !value.version.trim())
+            throw new Error('invalid package metadata');
+        return { name: value.name, version: value.version };
     }
     catch {
-        rmSync(extraction, { recursive: true, force: true });
-        fail('更新元tarballのpackage.jsonが不正です');
+        fail('CLIパッケージのpackage.jsonが不正です');
     }
-    return { root, version, cleanup: () => rmSync(extraction, { recursive: true, force: true }) };
+}
+function sourceTemplateRoot() {
+    return { root: bundledTemplateRoot(), version: packageMetadata().version };
 }
 function collectTemplateFiles(root, directory = root) {
     const files = [];
@@ -272,7 +241,7 @@ function mergeExistingIgnore(root, files, acceptExisting) {
     const separator = existing.endsWith('\n') || !existing ? '' : '\n';
     files.set('.gitignore', Buffer.from(existing + separator + missing.join('\n') + '\n', 'utf8'));
 }
-function manifestFor(files, projectName, packageManager, frameworkVersion = FRAMEWORK_VERSION) {
+function manifestFor(files, projectName, packageManager, frameworkVersion) {
     return {
         schemaVersion: 1,
         framework: { name: FRAMEWORK_NAME, version: frameworkVersion },
@@ -485,68 +454,51 @@ async function init(root, options) {
         assertOwnedFilesUnchanged(root, current);
         const projectName = validateProjectName(options.projectName?.trim() || current.projectName);
         const packageManager = await choosePackageManager(root, options.packageManager ?? current.packageManager);
-        const source = sourceTemplateRoot(undefined);
-        try {
-            const expected = manifestFor(buildFiles(source.root, projectName, packageManager), projectName, packageManager, source.version);
-            if (projectName !== current.projectName || packageManager !== current.packageManager
-                || JSON.stringify(expected.files) !== JSON.stringify(current.files)) {
-                fail('初期セットアップ済みの内容と異なるため再実行を停止しました');
-            }
-            if (options.dryRun)
-                printDryRun('init', new Map(), packageManager, options.install);
-            else
-                console.log(`初期セットアップ済みです: ${projectName}`);
-            return;
+        const source = sourceTemplateRoot();
+        const expected = manifestFor(buildFiles(source.root, projectName, packageManager), projectName, packageManager, source.version);
+        if (projectName !== current.projectName || packageManager !== current.packageManager
+            || JSON.stringify(expected.files) !== JSON.stringify(current.files)) {
+            fail('初期セットアップ済みの内容と異なるため再実行を停止しました');
         }
-        finally {
-            source.cleanup?.();
-        }
+        if (options.dryRun)
+            printDryRun('init', new Map(), packageManager, options.install);
+        else
+            console.log(`初期セットアップ済みです: ${projectName}`);
+        return;
     }
     assertNewRepository(root);
     const projectName = await chooseProjectName(root, options.projectName);
     const packageManager = await choosePackageManager(root, options.packageManager);
-    const source = sourceTemplateRoot(undefined);
-    try {
-        const files = buildFiles(source.root, projectName, packageManager);
-        mergeExistingIgnore(root, files, options.acceptExisting);
-        const manifest = manifestFor(files, projectName, packageManager, source.version);
-        const planned = planFiles(files, manifest);
-        validateGeneratedPlan(planned);
-        if (options.dryRun) {
-            printDryRun('init', planned, packageManager, options.install);
-            return;
-        }
-        applyPlan(root, planned, packageManager, options.install);
-        console.log(`初期セットアップが完了しました: ${projectName}`);
-        console.log(`${packageManager} run verify と workflow:prepare を実行して確認してください。`);
+    const source = sourceTemplateRoot();
+    const files = buildFiles(source.root, projectName, packageManager);
+    mergeExistingIgnore(root, files, options.acceptExisting);
+    const manifest = manifestFor(files, projectName, packageManager, source.version);
+    const planned = planFiles(files, manifest);
+    validateGeneratedPlan(planned);
+    if (options.dryRun) {
+        printDryRun('init', planned, packageManager, options.install);
+        return;
     }
-    finally {
-        source.cleanup?.();
-    }
+    applyPlan(root, planned, packageManager, options.install);
+    console.log(`初期セットアップが完了しました: ${projectName}`);
+    console.log(`${packageManager} run verify と workflow:prepare を実行して確認してください。`);
 }
 async function update(root, options) {
     assertRepositoryRoot(root);
-    if (!options.from)
-        fail('更新には--from <tarball>が必要です');
     const current = readManifest(root);
     assertOwnedFilesUnchanged(root, current);
-    const source = sourceTemplateRoot(options.from, true);
-    try {
-        const files = buildFiles(source.root, current.projectName, current.packageManager);
-        const manifest = manifestFor(files, current.projectName, current.packageManager, source.version);
-        const planned = planFiles(files, manifest);
-        assertUpdatePlanHasNoCollisions(root, current, planned);
-        validateGeneratedPlan(planned);
-        if (options.dryRun) {
-            printDryRun('update', planned, current.packageManager, options.install);
-            return;
-        }
-        applyPlan(root, planned, current.packageManager, options.install);
-        console.log(`更新が完了しました: ${current.projectName}`);
+    const source = sourceTemplateRoot();
+    const files = buildFiles(source.root, current.projectName, current.packageManager);
+    const manifest = manifestFor(files, current.projectName, current.packageManager, source.version);
+    const planned = planFiles(files, manifest);
+    assertUpdatePlanHasNoCollisions(root, current, planned);
+    validateGeneratedPlan(planned);
+    if (options.dryRun) {
+        printDryRun('update', planned, current.packageManager, options.install);
+        return;
     }
-    finally {
-        source.cleanup?.();
-    }
+    applyPlan(root, planned, current.packageManager, options.install);
+    console.log(`更新が完了しました: ${current.projectName}`);
 }
 async function main() {
     const options = parseOptions(process.argv.slice(2));

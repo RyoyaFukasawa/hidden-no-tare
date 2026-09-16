@@ -37,4 +37,4 @@ CLIは一時領域で生成物を検証した後、`AGENTS.md`、`workflow.confi
 ## 関連文書
 
 - 関連する現行仕様：`docs/product/exchangeable-development-workflow.md`
-- 判断の理由を記録したADR：`docs/adr/0005-initial-project-bootstrap-cli.md`
+- 判断の理由を記録したADR：`docs/adr/0005-initial-project-bootstrap-cli.md`、`docs/adr/0006-public-npm-distribution-for-bootstrap-cli.md`

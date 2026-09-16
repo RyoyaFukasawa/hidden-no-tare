@@ -26,12 +26,18 @@ function run(root: string, args: string[], extraEnv: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, [cli, ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, ...extraEnv } });
 }
 
-function templateTarball(): { path: string; directory: string } {
-  const directory = mkdtempSync(join(tmpdir(), 'project-work-flow-source-'));
-  const path = join(directory, 'create-project-work-flow.tgz');
-  cpSync(resolve('packages/create-project-work-flow'), join(directory, 'package'), { recursive: true });
-  execFileSync('tar', ['-czf', path, '-C', directory, 'package']);
-  return { path, directory };
+function withTemplateFile(relativePath: string, content: string, callback: () => void): void {
+  const path = join(resolve('packages/create-project-work-flow/templates/project'), relativePath);
+  const parent = resolve(path, '..');
+  const parentWasPresent = existsSync(parent);
+  mkdirSync(parent, { recursive: true });
+  try {
+    writeFileSync(path, content, { flag: 'wx' });
+    callback();
+  } finally {
+    rmSync(path, { force: true });
+    if (!parentWasPresent) rmSync(parent, { recursive: true, force: true });
+  }
 }
 
 test('initializes a new repository without installing dependencies', () => {
@@ -126,17 +132,15 @@ test('re-running init on the same generated state is idempotent', () => {
 
 test('update stops when an owned file was changed', () => {
   const root = fixture();
-  const source = templateTarball();
   try {
     const first = run(root, ['init', '--package-manager', 'npm']);
     assert.equal(first.status, 0, first.stderr);
     writeFileSync(join(root, 'AGENTS.md'), 'user change\n');
-    const result = run(root, ['update', '--from', source.path, '--dry-run']);
+    const result = run(root, ['update', '--dry-run']);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /変更|上書き|停止/);
   } finally {
     rmSync(root, { recursive: true, force: true });
-    rmSync(source.directory, { recursive: true, force: true });
   }
 });
 
@@ -157,85 +161,65 @@ test('supports pnpm and appends the generated ignore rules only after approval',
   }
 });
 
-test('updates owned files from an explicit template source', () => {
+test('updates owned files from the bundled npm package', () => {
   const root = fixture();
-  const source = templateTarball();
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
-    const extracted = mkdtempSync(join(tmpdir(), 'project-work-flow-source-edit-'));
-    cpSync(resolve('packages/create-project-work-flow'), join(extracted, 'package'), { recursive: true });
-    writeFileSync(join(extracted, 'package/templates/project/CONTEXT.md'), '# Updated glossary\n');
-    execFileSync('tar', ['-czf', source.path, '-C', extracted, 'package']);
-    rmSync(extracted, { recursive: true, force: true });
-    const result = run(root, ['update', '--from', source.path]);
+    const result = run(root, ['update']);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(readFileSync(join(root, 'CONTEXT.md'), 'utf8'), '# Updated glossary\n');
+    assert.equal(JSON.parse(readFileSync(join(root, '.workflow/setup-manifest.json'), 'utf8')).framework.version, '0.1.0');
   } finally {
     rmSync(root, { recursive: true, force: true });
-    rmSync(source.directory, { recursive: true, force: true });
   }
 });
 
 test('update stops when a new framework file collides with a user file', () => {
   const root = fixture();
-  const source = templateTarball();
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
-    const extracted = mkdtempSync(join(tmpdir(), 'project-work-flow-source-collision-'));
-    cpSync(resolve('packages/create-project-work-flow'), join(extracted, 'package'), { recursive: true });
-    writeFileSync(join(extracted, 'package/templates/project/user-added.md'), '# New framework file\n');
-    execFileSync('tar', ['-czf', source.path, '-C', extracted, 'package']);
-    rmSync(extracted, { recursive: true, force: true });
     writeFileSync(join(root, 'user-added.md'), '# User file\n');
-    const result = run(root, ['update', '--from', source.path]);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /衝突|既存/);
-    assert.equal(readFileSync(join(root, 'user-added.md'), 'utf8'), '# User file\n');
+    withTemplateFile('user-added.md', '# New framework file\n', () => {
+      const result = run(root, ['update']);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /衝突|既存/);
+      assert.equal(readFileSync(join(root, 'user-added.md'), 'utf8'), '# User file\n');
+    });
   } finally {
     rmSync(root, { recursive: true, force: true });
-    rmSync(source.directory, { recursive: true, force: true });
   }
 });
 
 test('update rejects a symlinked ancestor for a new framework file', () => {
   const root = fixture();
-  const source = templateTarball();
   const outside = mkdtempSync(join(tmpdir(), 'project-work-flow-outside-'));
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
-    const extracted = mkdtempSync(join(tmpdir(), 'project-work-flow-source-ancestor-'));
-    cpSync(resolve('packages/create-project-work-flow'), join(extracted, 'package'), { recursive: true });
-    mkdirSync(join(extracted, 'package/templates/project/new-dir'), { recursive: true });
-    writeFileSync(join(extracted, 'package/templates/project/new-dir/file.md'), '# New framework file\n');
-    execFileSync('tar', ['-czf', source.path, '-C', extracted, 'package']);
-    rmSync(extracted, { recursive: true, force: true });
-    symlinkSync(outside, join(root, 'new-dir'), 'dir');
-    const result = run(root, ['update', '--from', source.path]);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /シンボリックリンク|停止/);
-    assert.equal(existsSync(join(outside, 'file.md')), false);
+    withTemplateFile('new-dir/file.md', '# New framework file\n', () => {
+      symlinkSync(outside, join(root, 'new-dir'), 'dir');
+      const result = run(root, ['update']);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /シンボリックリンク|停止/);
+      assert.equal(existsSync(join(outside, 'file.md')), false);
+    });
   } finally {
     rmSync(root, { recursive: true, force: true });
-    rmSync(source.directory, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   }
 });
 
 test('update rejects a symlinked ancestor for an existing owned file', () => {
   const root = fixture();
-  const source = templateTarball();
   const outside = mkdtempSync(join(tmpdir(), 'project-work-flow-owned-outside-'));
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
     cpSync(join(root, 'docs'), join(outside, 'docs'), { recursive: true });
     rmSync(join(root, 'docs'), { recursive: true, force: true });
     symlinkSync(join(outside, 'docs'), join(root, 'docs'), 'dir');
-    const result = run(root, ['update', '--from', source.path]);
+    const result = run(root, ['update']);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /シンボリックリンク|停止/);
   } finally {
     rmSync(root, { recursive: true, force: true });
-    rmSync(source.directory, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   }
 });

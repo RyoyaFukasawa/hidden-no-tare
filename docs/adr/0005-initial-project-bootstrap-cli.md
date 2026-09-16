@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: Superseded
 approvedBy: "repository-user"
 approvedAt: "2026-09-16T09:27:27Z"
 approvedBodySha256: "1e8a1e5c202a13d67d9e1c9f6c6a09c4453658a66c8931ac5dddb5501bdec1b5"
