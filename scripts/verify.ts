@@ -10,6 +10,7 @@ try {
     ['scripts/workflow/check-contract.ts'],
     ['scripts/completion-check/check-work-items.ts'],
     ['scripts/adr/check.ts'],
+    ['scripts/docs-check/check-layout.ts'],
     ['scripts/docs-check/check.ts', 'markdown'],
     ['scripts/docs-check/check.ts', 'links'],
     ['scripts/workflow/verify-project.ts'],
@@ -21,7 +22,7 @@ try {
   }
   const errors = [...checkSnapshot(), ...checkWorkflowRepository(cwd)];
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('Verification passed (contract, project checks, work items, ADRs and Markdown/links).');
+  console.log('Verification passed (contract, project checks, work items, ADRs, docs layout and Markdown/links).');
 } catch (error) {
   reportVerificationFailure(fileURLToPath(new URL('../', import.meta.url)), error);
   process.exitCode = 1;

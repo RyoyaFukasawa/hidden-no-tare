@@ -13,8 +13,11 @@ function fixture(t: TestContext, projectCode = "console.log('fixture passed')") 
   cpSync(join(source, 'scripts'), join(root, 'scripts'), { recursive: true });
   symlinkSync(join(source, 'node_modules'), join(root, 'node_modules'), 'dir');
   mkdirSync(join(root, 'docs/adr'), { recursive: true });
+  mkdirSync(join(root, 'docs/archive'), { recursive: true });
+  mkdirSync(join(root, 'docs/product'), { recursive: true });
+  mkdirSync(join(root, 'docs/templates'), { recursive: true });
   mkdirSync(join(root, '.workflow/connections'), { recursive: true });
-  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.workflow/changes/\n.workflow/logs/\n.workflow/external/\n.workflow/connection-state/\n/docs/agents/demo.md\n/docs/agents/other.md\n');
+  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.workflow/changes/\n.workflow/logs/\n.workflow/external/\n.workflow/connection-state/\n/CONNECTION-INFO.md\n/OTHER-CONNECTION-INFO.md\n');
   writeFileSync(join(root, 'AGENTS.md'), '# Fixture\n\nworkflow:prepare verify\n');
   writeFileSync(join(root, 'ticket.md'), '# Ticket\n');
   writeFileSync(join(root, 'workflow.config.json'), JSON.stringify({ schemaVersion: 1,
@@ -45,7 +48,7 @@ function fixture(t: TestContext, projectCode = "console.log('fixture passed')") 
     Object.assign(manifest, { state: 'complete', review: { kind: 'human', approver: 'fixture-only',
       reviewedAt: '2026-09-15T00:00:00Z', commit: git('rev-parse', 'HEAD') } }); save();
   };
-  const define = (id = 'demo', compatibility: Record<string, string> = { 'docs/agents/demo.md': '# Demo\n' }) => {
+  const define = (id = 'demo', compatibility: Record<string, string> = { 'CONNECTION-INFO.md': '# Demo\n' }) => {
     writeFileSync(join(root, `.workflow/connections/${id}.json`), JSON.stringify({ schemaVersion: 1, id,
       files: { 'config.md': '# External config\n' }, compatibility }));
     git('add', '.workflow/connections'); git('commit', '-m', 'test: connection definition');
@@ -60,18 +63,18 @@ test('接続CLIは定義から専用領域と固定パスを生成し未変更�
   const attached = f.connection('attach', 'demo');
   assert.equal(attached.status, 0, attached.output);
   assert.equal(readFileSync(join(f.root, '.workflow/external/demo/config.md'), 'utf8'), '# External config\n');
-  assert.equal(readFileSync(join(f.root, 'docs/agents/demo.md'), 'utf8'), '# Demo\n');
+  assert.equal(readFileSync(join(f.root, 'CONNECTION-INFO.md'), 'utf8'), '# Demo\n');
   assert.ok(existsSync(join(f.root, '.workflow/connection-state/demo.json')));
   const detached = f.connection('detach', 'demo');
   assert.equal(detached.status, 0, detached.output);
   assert.equal(existsSync(join(f.root, '.workflow/external/demo')), false);
-  assert.equal(existsSync(join(f.root, 'docs/agents/demo.md')), false);
+  assert.equal(existsSync(join(f.root, 'CONNECTION-INFO.md')), false);
   assert.equal(existsSync(join(f.root, '.workflow/connection-state/demo.json')), false);
   assert.equal(f.git('status', '--porcelain'), '');
 });
 
 test('作業資料は通常検証で保持し、全接続を対象に完了と撤去を拒否する', t => {
-  const f = fixture(t); f.define(); f.define('other', { 'docs/agents/other.md': '# Other\n' });
+  const f = fixture(t); f.define(); f.define('other', { 'OTHER-CONNECTION-INFO.md': '# Other\n' });
   assert.equal(f.connection('attach', 'demo').status, 0);
   assert.equal(f.connection('attach', 'other').status, 0);
   const data = join(f.root, '.workflow/external/other/draft.md');
@@ -95,7 +98,7 @@ test('作業資料は通常検証で保持し、全接続を対象に完了と�
 });
 
 test('検証中に接続全体を消しても完了ゲートを迂回できずマニフェストを保持する', t => {
-  const f = fixture(t, "require('node:fs').rmSync('.workflow/connection-state', {recursive:true}); require('node:fs').rmSync('.workflow/external', {recursive:true}); require('node:fs').unlinkSync('docs/agents/demo.md')");
+  const f = fixture(t, "require('node:fs').rmSync('.workflow/connection-state', {recursive:true}); require('node:fs').rmSync('.workflow/external', {recursive:true}); require('node:fs').unlinkSync('CONNECTION-INFO.md')");
   f.define(); assert.equal(f.connection('attach', 'demo').status, 0); f.approve();
   const result = f.run('scripts/workflow/finalize.ts', 'sample');
   assert.notEqual(result.status, 0, result.output);
@@ -104,9 +107,9 @@ test('検証中に接続全体を消しても完了ゲートを迂回できず�
 });
 
 test('生成後の変更はUTF-8の置換文字に見えてもバイト単位で検出し保持する', t => {
-  const f = fixture(t); f.define('demo', { 'docs/agents/demo.md': '\ufffd' });
+  const f = fixture(t); f.define('demo', { 'CONNECTION-INFO.md': '\ufffd' });
   assert.equal(f.connection('attach', 'demo').status, 0);
-  const path = join(f.root, 'docs/agents/demo.md'); writeFileSync(path, Buffer.from([0xff]));
+  const path = join(f.root, 'CONNECTION-INFO.md'); writeFileSync(path, Buffer.from([0xff]));
   assert.notEqual(f.connection('detach', 'demo').status, 0);
   assert.deepEqual(readFileSync(path), Buffer.from([0xff]));
 });
@@ -121,8 +124,7 @@ test('接続定義の不正なUTF-8を黙って置換して生成しない', t =
 
 test('既存固定ファイルと他接続の予約パスは上書きも奪取もしない', t => {
   const f = fixture(t); f.define(); f.define('other');
-  mkdirSync(join(f.root, 'docs/agents'));
-  const fixed = join(f.root, 'docs/agents/demo.md'); writeFileSync(fixed, '# User data');
+  const fixed = join(f.root, 'CONNECTION-INFO.md'); writeFileSync(fixed, '# User data');
   assert.notEqual(f.connection('attach', 'demo').status, 0);
   assert.equal(readFileSync(fixed, 'utf8'), '# User data');
   assert.ok(!existsSync(join(f.root, '.workflow/external/demo')));
@@ -212,7 +214,7 @@ for (const kind of ['corrupt', 'foreign-path', 'phase', 'definition-changed', 'm
     assert.notEqual(f.run('scripts/workflow/check-contract.ts').status, 0);
     assert.equal(readFileSync(valuable, 'utf8'), '# Keep');
     assert.ok(existsSync(config));
-    assert.ok(existsSync(join(f.root, 'docs/agents/demo.md')));
+    assert.ok(existsSync(join(f.root, 'CONNECTION-INFO.md')));
   });
 }
 

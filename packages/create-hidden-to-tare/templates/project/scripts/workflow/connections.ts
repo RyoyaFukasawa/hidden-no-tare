@@ -67,7 +67,7 @@ function definition(root: string, id: string) {
     for (const [path, content] of Object.entries(files)) {
       relativePath(path);
       if (typeof content !== 'string') fail(`生成内容は文字列にしてください: ${path}`);
-      if (!prefix && (/^(?:\.[^/]+|node_modules|scripts|work)(?:\/|$)/i.test(path) || /^(?:AGENTS\.md|CLAUDE\.md|CONTEXT\.md|README\.md|package(?:-lock)?\.json|workflow\.config\.json|tsconfig\.json)$/i.test(path) || /^docs\/(?:product|adr|archive|templates)(?:\/|$)/i.test(path))) fail(`共通領域へ生成できません: ${path}`);
+      if (!prefix && (/^(?:\.[^/]+|node_modules|scripts|work)(?:\/|$)/i.test(path) || /^(?:AGENTS\.md|CLAUDE\.md|CONTEXT\.md|README\.md|package(?:-lock)?\.json|workflow\.config\.json|tsconfig\.json)$/i.test(path) || /^docs(?:\/|$)/i.test(path))) fail(`共通領域へ生成できません: ${path}`);
       if (path.split('/').some(p => /^\.git$/i.test(p))) fail(`Git領域は扱えません: ${path}`);
       const target = prefix + path;
       for (const other of targets.keys()) if (overlap(target, other)) fail(`生成パスが競合しています: ${target}`);
