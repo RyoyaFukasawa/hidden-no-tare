@@ -312,7 +312,7 @@ Matt接続なし・定義削除後でも通常のverifyを実行でき、固有C
 ### 導入対象と実行環境
 
 新規リポジトリを正式な導入対象とする。Node.js、Git、外部リンク検証ツールを使用し、
-必要版と導入方法はREADMEに示す。`create-project-work-flow`のCLIはNode.jsで動作し、
+必要版と導入方法はREADMEに示す。`create-hidden-to-tare`パッケージの`hidden-to-tare` CLIはNode.jsで動作し、
 導入先アプリの言語には依存しない。CLIは`.gitignore`と`README.md`以外の既存ファイルがある
 リポジトリ、またはGitのHEADがないリポジトリを初期化せず、途中導入を自動マージ・上書きしない。
 

@@ -1,4 +1,4 @@
-# Exchangeable Development Workflow
+# hidden-to-tare
 
 外部の開発SKILLやエージェントを交換しながら、プロジェクトに残す仕様、
 受け入れ条件、検証証跡、承認、アーカイブの契約を維持するテンプレートです。
@@ -45,7 +45,7 @@ cd ../new-project
 git init --initial-branch=main
 git add README.md
 git commit -m "chore: initialize repository"
-npm create project-work-flow@0.1.0 -- --package-manager npm --install
+npm create hidden-to-tare@0.1.0 -- --package-manager npm --install
 npm run verify
 npm run workflow:prepare -- initial-change "最初の変更"
 ```
@@ -54,7 +54,7 @@ pnpmを使う場合は、`--package-manager pnpm --install`を指定して同じ
 既存の`.gitignore`へ必要な除外規則を追記する場合は、差分を確認して`--accept-existing`を指定します。
 生成前の確認には`--dry-run`を使えます。CLIは利用者のコミットを作成しません。
 更新は固定版のnpmパッケージをCLIとして実行します。
-`npm exec --package create-project-work-flow@0.1.1 -- project-work-flow update`の形式です。
+`npm exec --package create-hidden-to-tare@0.1.0 -- hidden-to-tare update`の形式です。
 
 初回のパッケージ導入にはネットワークが必要です。通常のリンク検証はオフラインです。
 アプリを追加したら`workflow.config.json`の`projectChecks`にlint・型チェック・テストを接続します。

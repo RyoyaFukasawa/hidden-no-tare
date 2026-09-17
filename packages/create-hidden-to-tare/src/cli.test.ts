@@ -5,10 +5,10 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const cli = resolve('packages/create-project-work-flow/src/cli.ts');
+const cli = resolve('packages/create-hidden-to-tare/src/cli.ts');
 
 function fixture(files: Record<string, string> = { 'README.md': '# Fixture\n' }): string {
-  const root = mkdtempSync(join(tmpdir(), 'project-work-flow-'));
+  const root = mkdtempSync(join(tmpdir(), 'hidden-to-tare-'));
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     mkdirSync(resolve(target, '..'), { recursive: true });
@@ -27,7 +27,7 @@ function run(root: string, args: string[], extraEnv: NodeJS.ProcessEnv = {}) {
 }
 
 function withTemplateFile(relativePath: string, content: string, callback: () => void): void {
-  const path = join(resolve('packages/create-project-work-flow/templates/project'), relativePath);
+  const path = join(resolve('packages/create-hidden-to-tare/templates/project'), relativePath);
   const parent = resolve(path, '..');
   const parentWasPresent = existsSync(parent);
   mkdirSync(parent, { recursive: true });
@@ -191,7 +191,7 @@ test('update stops when a new framework file collides with a user file', () => {
 
 test('update rejects a symlinked ancestor for a new framework file', () => {
   const root = fixture();
-  const outside = mkdtempSync(join(tmpdir(), 'project-work-flow-outside-'));
+  const outside = mkdtempSync(join(tmpdir(), 'hidden-to-tare-outside-'));
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
     withTemplateFile('new-dir/file.md', '# New framework file\n', () => {
@@ -209,7 +209,7 @@ test('update rejects a symlinked ancestor for a new framework file', () => {
 
 test('update rejects a symlinked ancestor for an existing owned file', () => {
   const root = fixture();
-  const outside = mkdtempSync(join(tmpdir(), 'project-work-flow-owned-outside-'));
+  const outside = mkdtempSync(join(tmpdir(), 'hidden-to-tare-owned-outside-'));
   try {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
     cpSync(join(root, 'docs'), join(outside, 'docs'), { recursive: true });
@@ -226,7 +226,7 @@ test('update rejects a symlinked ancestor for an existing owned file', () => {
 
 test('rolls back generated files and directories when installation fails', () => {
   const root = fixture();
-  const bin = mkdtempSync(join(tmpdir(), 'project-work-flow-failing-bin-'));
+  const bin = mkdtempSync(join(tmpdir(), 'hidden-to-tare-failing-bin-'));
   try {
     const pnpm = join(bin, 'pnpm');
     writeFileSync(pnpm, '#!/bin/sh\nprintf "lockfileVersion: 9\\n" > pnpm-lock.yaml\nmkdir -p node_modules && printf "partial" > node_modules/partial.txt\nexit 1\n');
@@ -242,7 +242,7 @@ test('rolls back generated files and directories when installation fails', () =>
 
 test('installs dependencies when the selected package manager succeeds', () => {
   const root = fixture();
-  const bin = mkdtempSync(join(tmpdir(), 'project-work-flow-bin-'));
+  const bin = mkdtempSync(join(tmpdir(), 'hidden-to-tare-bin-'));
   try {
     const pnpm = join(bin, 'pnpm');
     writeFileSync(pnpm, '#!/bin/sh\nprintf "lockfileVersion: 9\\n" > pnpm-lock.yaml\n');

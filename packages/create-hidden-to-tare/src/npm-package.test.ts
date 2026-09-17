@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const packageRoot = resolve('packages/create-project-work-flow');
+const packageRoot = resolve('packages/create-hidden-to-tare');
 const repositoryRoot = resolve('.');
 
 interface PackedPackage {
@@ -26,8 +26,12 @@ function packPackage(destination: string, npmCache: string): PackedPackage {
   });
   const [packageInfo] = JSON.parse(output) as PackedPackage[];
   const packageManifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as { bin: Record<string, string> };
-  assert.equal(packageInfo.name, 'create-project-work-flow');
+  assert.equal(packageInfo.name, 'create-hidden-to-tare');
   assert.equal(typeof packageInfo.version, 'string');
+  assert.deepEqual(packageManifest.bin, {
+    'hidden-to-tare': 'dist/cli.js',
+    'create-hidden-to-tare': 'dist/cli.js',
+  });
   return { ...packageInfo, bin: packageManifest.bin };
 }
 
@@ -102,9 +106,9 @@ test('runs the fixed-version package through npm create and npm exec', async (co
     context.skip('set RUN_NPM_PACKAGE_FIXTURE=1 to run the local-registry package boundary fixture');
     return;
   }
-  const packageDirectory = mkdtempSync(join(tmpdir(), 'project-work-flow-package-'));
-  const project = mkdtempSync(join(tmpdir(), 'project-work-flow-npm-project-'));
-  const npmCache = mkdtempSync(join(tmpdir(), 'project-work-flow-npm-cache-'));
+  const packageDirectory = mkdtempSync(join(tmpdir(), 'hidden-to-tare-package-'));
+  const project = mkdtempSync(join(tmpdir(), 'hidden-to-tare-npm-project-'));
+  const npmCache = mkdtempSync(join(tmpdir(), 'hidden-to-tare-npm-cache-'));
   let server: Server | undefined;
   let registry = '';
   try {
@@ -119,9 +123,10 @@ test('runs the fixed-version package through npm create and npm exec', async (co
     execFileSync('git', ['add', 'README.md'], { cwd: project });
     execFileSync('git', ['commit', '-m', 'fixture'], { cwd: project });
 
-    const init = await runNpm(['create', `project-work-flow@${packageInfo.version}`, '--', '--project-name', 'npm-fixture', '--package-manager', 'npm'], project, registry, npmCache);
+    const init = await runNpm(['create', `hidden-to-tare@${packageInfo.version}`, '--', '--project-name', 'npm-fixture', '--package-manager', 'npm'], project, registry, npmCache);
     assert.equal(init.status, 0, init.stdout + init.stderr);
-    const manifest = JSON.parse(readFileSync(join(project, '.workflow/setup-manifest.json'), 'utf8')) as { framework: { version: string } };
+    const manifest = JSON.parse(readFileSync(join(project, '.workflow/setup-manifest.json'), 'utf8')) as { framework: { name: string; version: string } };
+    assert.equal(manifest.framework.name, 'hidden-to-tare');
     assert.equal(manifest.framework.version, packageInfo.version);
     assert.ok(existsSync(join(project, 'scripts/verify.ts')));
     assert.ok(existsSync(join(project, 'scripts/workflow/prepare.ts')));
@@ -132,7 +137,7 @@ test('runs the fixed-version package through npm create and npm exec', async (co
     const prepare = await runNpm(['run', 'workflow:prepare', '--', 'npm-fixture-change', 'npm fixture change'], project, registry, npmCache);
     assert.equal(prepare.status, 0, prepare.stdout + prepare.stderr);
 
-    const update = await runNpm(['exec', '--package', `${packageInfo.name}@${packageInfo.version}`, '--', 'project-work-flow', 'update', '--dry-run'], project, registry, npmCache);
+    const update = await runNpm(['exec', '--package', `${packageInfo.name}@${packageInfo.version}`, '--', 'hidden-to-tare', 'update', '--dry-run'], project, registry, npmCache);
     assert.equal(update.status, 0, update.stdout + update.stderr);
   } finally {
     if (server) await new Promise<void>((resolvePromise) => server?.close(() => resolvePromise()));

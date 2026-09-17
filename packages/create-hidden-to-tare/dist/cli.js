@@ -6,7 +6,7 @@ import { existsSync, cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, re
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const FRAMEWORK_NAME = 'project-work-flow';
+const FRAMEWORK_NAME = 'hidden-to-tare';
 const MANIFEST_PATH = '.workflow/setup-manifest.json';
 const PACKAGE_MANAGERS = new Set(['npm', 'pnpm']);
 function fail(message) {
@@ -55,7 +55,7 @@ function parseOptions(argv) {
             continue;
         }
         if (argument === '--help' || argument === '-h') {
-            console.log('Usage: project-work-flow [init|update] [--project-name NAME] [--package-manager npm|pnpm] [--install] [--dry-run]');
+            console.log('Usage: hidden-to-tare [init|update] [--project-name NAME] [--package-manager npm|pnpm] [--install] [--dry-run]');
             process.exit(0);
         }
         fail(`未対応の引数です: ${argument}`);
@@ -154,7 +154,7 @@ function packageMetadata() {
     const path = fileURLToPath(new URL('../package.json', import.meta.url));
     try {
         const value = JSON.parse(readFileSync(path, 'utf8'));
-        if (value.name !== 'create-project-work-flow' || typeof value.version !== 'string' || !value.version.trim())
+        if (value.name !== 'create-hidden-to-tare' || typeof value.version !== 'string' || !value.version.trim())
             throw new Error('invalid package metadata');
         return { name: value.name, version: value.version };
     }
@@ -256,7 +256,7 @@ function planFiles(files, manifest) {
     return planned;
 }
 function validateGeneratedPlan(files) {
-    const stage = mkdtempSync(join(tmpdir(), 'project-work-flow-stage-'));
+    const stage = mkdtempSync(join(tmpdir(), 'hidden-to-tare-stage-'));
     try {
         writePlan(stage, files);
         for (const required of ['AGENTS.md', '.gitignore', 'package.json', 'tsconfig.json', 'workflow.config.json', MANIFEST_PATH,
@@ -329,7 +329,7 @@ function assertUpdatePlanHasNoCollisions(root, current, planned) {
     }
 }
 function snapshotRepository(root) {
-    const backup = mkdtempSync(join(tmpdir(), 'project-work-flow-rollback-'));
+    const backup = mkdtempSync(join(tmpdir(), 'hidden-to-tare-rollback-'));
     try {
         for (const entry of readdirSync(root)) {
             if (entry === '.git')

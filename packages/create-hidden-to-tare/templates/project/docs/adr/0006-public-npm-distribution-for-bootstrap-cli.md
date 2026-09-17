@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: Superseded
 supersedes: ["0005"]
 approvedBy: "repository-user"
 approvedAt: "2026-09-16T10:45:39Z"
