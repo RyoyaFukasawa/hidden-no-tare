@@ -25,6 +25,6 @@ status: done
 
 - `gh repo view`で`RyoyaFukasawa/hidden-to-tare`と新URLを確認した。
 - `npm view create-hidden-to-tare version dist.tarball --json`で`0.1.0`を確認した。
-- 公開registryから新規Gitリポジトリへ`npm create hidden-to-tare@0.1.0`を実行し、`hidden-to-tare update --dry-run`も成功した。
+- 公開registryから新規Gitリポジトリへ`npm create hidden-to-tare@0.1.0`を実行し、`npm exec --yes --package=create-hidden-to-tare@0.1.0 -- hidden-to-tare update`も成功した。
 - `npm view create-project-work-flow version`がunpublishedの404を返すことを確認した。
 - `npm test`（237件）、`npm run typecheck`、`npm run verify`、`npm run verify:examples`、`npm run lint:docs-layout`、`npm pack --dry-run`が成功した。
