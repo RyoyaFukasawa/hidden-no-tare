@@ -116,6 +116,15 @@ test('verifyは成功出力を要約し詳細をGit管理外のログへ保存�
   assert.equal(git('status', '--porcelain'), '');
 });
 
+test('verifyはdocs直下の許可外エントリを検出して失敗する', t => {
+  const { root } = cliFixture(t, "console.log('passing')");
+  mkdirSync(join(root, 'docs', 'changes'));
+  const result = spawnSync(process.execPath, ['scripts/verify.ts'], { cwd: root, encoding: 'utf8' });
+  const output = result.stdout + result.stderr;
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /docs直下に許可されていないエントリがあります: changes/);
+});
+
 test('finalizeも出力を要約し成功時だけマニフェストを削除する', t => {
   const { root, path } = cliFixture(t, "console.log('FINALIZE-DETAIL\\n'.repeat(1000))");
   const result = spawnSync(process.execPath, ['scripts/workflow/finalize.ts', 'sample'], { cwd: root, encoding: 'utf8' });

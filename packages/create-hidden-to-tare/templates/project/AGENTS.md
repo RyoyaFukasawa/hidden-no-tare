@@ -9,6 +9,8 @@
 
 - `npm run workflow:prepare -- <change-id> <summary>`で一時マニフェストを作る。
   変更特性とリスクが確定するまでは調査・試作だけとする。
+- 作業中の変更仕様とチケットは`.workflow/work/<change-id>/`へ置き、`docs/`直下には
+  `adr/`、`archive/`、`product/`、`templates/`だけを作成する。
 - 関連する現行仕様と設計判断を先に読む。`docs/archive/`は必要な過去の経緯だけ検索する。
   文書の形式・保存・移管は[文書の管理](docs/product/exchangeable-development-workflow.md#文書の管理)に従う。
 - 誤字・コメント・整形だけのチケット省略も、分類理由・検証・独立レビューは必須。

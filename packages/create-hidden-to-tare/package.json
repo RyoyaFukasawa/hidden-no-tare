@@ -1,11 +1,11 @@
 {
-  "name": "create-project-work-flow",
+  "name": "create-hidden-to-tare",
   "version": "0.1.0",
   "description": "Initialize the exchangeable development workflow in a new Git repository.",
   "type": "module",
   "bin": {
-    "project-work-flow": "dist/cli.js",
-    "create-project-work-flow": "dist/cli.js"
+    "hidden-to-tare": "dist/cli.js",
+    "create-hidden-to-tare": "dist/cli.js"
   },
   "files": ["dist", "templates", "package.json"],
   "scripts": {

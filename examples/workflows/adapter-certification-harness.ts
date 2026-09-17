@@ -136,7 +136,7 @@ export function runCertificationHarness(projectRoot: string, outputPath: string)
   return { success: outcomes.length > 0 && outcomes.every(Boolean) };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  const output = resolve(process.argv[2] ?? join(tmpdir(), 'hidden-no-tare-adapter-lifecycle-results.md'));
+  const output = resolve(process.argv[2] ?? join(tmpdir(), 'hidden-to-tare-adapter-lifecycle-results.md'));
   const result = runCertificationHarness(process.cwd(), output);
   console.log('Adapter boundary fixtures: ' + (result.success ? 'passed' : 'failed') + '; log: ' + output);
   process.exitCode = result.success ? 0 : 1;

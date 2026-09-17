@@ -1,6 +1,7 @@
 node_modules/
 .worktrees/
 .workflow/changes/*.json
+.workflow/work/
 .workflow/logs/
 .workflow/external/
 .workflow/connection-state/

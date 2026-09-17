@@ -33,7 +33,7 @@ function fixture(t: TestContext, includeMatt = true) {
 
 test('同梱Matt定義で準備し、資料を共通側へ移管して撤去しても成果物は残る', t => {
   const f = fixture(t);
-  const fixed = join(f.root, 'docs/agents/issue-tracker.md');
+  const fixed = join(f.root, '.workflow/external/matt/issue-tracker.md');
   assert.ok(!existsSync(fixed), '未接続時はMatt文書を同梱しない');
   const attached = f.connection('attach', 'matt'); assert.equal(attached.status, 0, attached.output);
   assert.match(readFileSync(fixed, 'utf8'), /ローカルMarkdown/);
@@ -47,17 +47,17 @@ test('同梱Matt定義で準備し、資料を共通側へ移管して撤去し�
   const independent = f.run('scripts/verify.ts'); assert.equal(independent.status, 0, independent.output);
 });
 
-test('Mattの固定パスに既存データがあれば上書きせず接続を拒否する', t => {
-  const f = fixture(t); mkdirSync(join(f.root, 'docs/agents'), { recursive: true });
-  const fixed = join(f.root, 'docs/agents/issue-tracker.md'); writeFileSync(fixed, '# 利用者の追記\n');
+test('Mattの専用領域に既存データがあれば上書きせず接続を拒否する', t => {
+  const f = fixture(t); mkdirSync(join(f.root, '.workflow/external/matt'), { recursive: true });
+  const fixed = join(f.root, '.workflow/external/matt/issue-tracker.md'); writeFileSync(fixed, '# 利用者の追記\n');
   const result = f.connection('attach', 'matt'); assert.notEqual(result.status, 0);
-  assert.match(result.output, /上書き/); assert.equal(readFileSync(fixed, 'utf8'), '# 利用者の追記\n');
-  assert.ok(!existsSync(join(f.root, '.workflow/external/matt')));
+  assert.match(result.output, /所有不明/); assert.equal(readFileSync(fixed, 'utf8'), '# 利用者の追記\n');
+  assert.ok(!existsSync(join(f.root, '.workflow/connection-state/matt.json')));
 });
 
 test('Matt定義・互換文書・SKILL・アダプターがなくても共通verifyが通る', t => {
   const f = fixture(t, false);
-  for (const path of ['.workflow/connections/matt.json', 'docs/agents/issue-tracker.md', '.codex/skills', 'adapters']) {
+  for (const path of ['.workflow/connections/matt.json', '.workflow/external/matt/issue-tracker.md', '.codex/skills', 'adapters']) {
     assert.ok(!existsSync(join(f.root, path)), path);
   }
   const result = f.run('scripts/verify.ts'); assert.equal(result.status, 0, result.output);
