@@ -175,7 +175,8 @@ test('変更済みの生成物と空の作業ディレクトリは自動削除�
 for (const bad of [null, [], {}, { files: null }, { files: { '../escape': 'bad' } },
   { files: { '/escape': 'bad' } }, { files: { 'a/../../escape': 'bad' } },
   { files: { 'a': 'x', 'a/b': 'y' } }, { files: { 'A': 'x', 'a': 'y' } },
-  { files: { 'a': 3 } }, { compatibility: { 'docs/product/injected.md': 'bad' } },
+  { files: { 'a': 3 } }, { compatibility: { 'docs/agents/injected.md': 'bad' } },
+  { compatibility: { 'docs/product/injected.md': 'bad' } },
   { compatibility: { '.git/config': 'bad' } }, { unexpected: true }]) {
   test(`不正な定義を拒否して生成しない: ${JSON.stringify(bad)}`, t => {
     const f = fixture(t); f.define();
