@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export function collectDocuments(root: string): string[] {
   return globSync([
     'AGENTS.md', '*.md', 'docs/templates/**/*.md',
-    'docs/product/**/*.md', 'docs/adr/**/*.md', 'docs/agents/**/*.md', 'docs/archive/**/*.md',
+    'docs/product/**/*.md', 'docs/adr/**/*.md', 'docs/archive/**/*.md',
   ], { cwd: root }).sort();
 }
 

@@ -199,11 +199,11 @@ SKILL本体はインストールしません。例えば`.workflow/connections/d
   "schemaVersion": 1,
   "id": "demo",
   "files": { "config.md": "# Demo connection\n" },
-  "compatibility": { "docs/agents/demo.md": "# Demo settings\n" }
+  "compatibility": { "CONNECTION-INFO.md": "# Demo settings\n" }
 }
 ```
 
-定義をGitへ追加し、固定パスを`.gitignore`へ個別に追加します（例：`/docs/agents/demo.md`）。
+定義をGitへ追加し、固定パスを`.gitignore`へ個別に追加します（例：`/CONNECTION-INFO.md`）。
 `.workflow/external/`と`.workflow/connection-state/`は同梱のignore対象です。
 既存ファイルは上書きしないため、既に追跡されている文書の移行は別途レビューして行ってください。
 
@@ -222,7 +222,7 @@ Mattを使う場合は同梱の`matt`定義を選び、SKILLを呼ぶ前に次�
 npm run workflow:connection -- attach matt
 ```
 
-`docs/agents/issue-tracker.md`をGit管理外に生成し、作業領域を`.workflow/external/matt/`に用意します。
+`.workflow/external/matt/issue-tracker.md`をGit管理外に生成し、作業領域を同じ専用領域に用意します。
 Matt以外を使うときは接続不要です。規約の正本は共通仕様にあり、互換文書は設定と参照だけを持ちます。
 ローカルMarkdownで仕様・チケットを管理し、GitHub Issueへ公開しない方針も共通仕様に残しています。
 不要になったら成果物を共通側へ移し、`npm run workflow:connection -- detach matt`で撤去します。
@@ -263,6 +263,5 @@ package.json、スクリプト、CI、既存アプリとの互換性は別途確
 
 ## 文書
 
-- [文書索引](docs/index.md)
 - [設計判断](docs/adr/README.md)
 - [成果物テンプレート](docs/templates/README.md)

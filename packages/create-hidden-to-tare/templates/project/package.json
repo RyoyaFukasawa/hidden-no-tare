@@ -11,7 +11,7 @@
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "test": "node --test scripts/**/*.test.ts",
     "verify": "node scripts/verify.ts",
-    "verify:contract": "node scripts/workflow/check-contract.ts && node scripts/completion-check/check-work-items.ts && node scripts/adr/check.ts && node scripts/docs-check/check.ts markdown && node scripts/docs-check/check.ts links",
+    "verify:contract": "node scripts/workflow/check-contract.ts && node scripts/completion-check/check-work-items.ts && node scripts/adr/check.ts && node scripts/docs-check/check-layout.ts && node scripts/docs-check/check.ts markdown && node scripts/docs-check/check.ts links",
     "verify:project": "node scripts/workflow/verify-project.ts",
     "workflow:prepare": "node scripts/workflow/prepare.ts",
     "workflow:connection": "node scripts/workflow/connections.ts",
@@ -21,6 +21,7 @@
     "adr:generate": "node scripts/adr/generate.ts",
     "adr:check": "node scripts/adr/check.ts",
     "lint:md": "node scripts/docs-check/check.ts markdown",
+    "lint:docs-layout": "node scripts/docs-check/check-layout.ts",
     "lint:links": "node scripts/docs-check/check.ts links",
     "lint:links:online": "node scripts/docs-check/check.ts links-online"
   },

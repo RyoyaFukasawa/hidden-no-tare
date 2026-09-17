@@ -78,6 +78,11 @@ ready以降には全変更特性とリスクの確定、および分類確認を
 仕様検討・実装・レビューでは関連する現行仕様と設計判断を先に読み、
 `docs/archive/`は過去の経緯が必要な場合だけ検索する。過去文書を現行仕様として扱わない。
 
+`docs/`直下には`adr/`、`archive/`、`product/`、`templates/`だけを置く。
+作業中の変更仕様・チケットは`.workflow/work/<change-id>/`に置き、完了時に必要な資料だけを
+`docs/archive/<日付と変更名>/`へ移管する。`npm run lint:docs-layout`がこの配置を検査し、
+`npm run verify`からも実行する。
+
 成果物の形式・保存先・完了条件は外部SKILLよりプロジェクトの規約を優先する。
 現行仕様・変更仕様・チケット・ADRは[対応するテンプレート](../templates/README.md)を使う。
 作業中の保存先と文書の分割方法はSKILLに任せ、特定の作業ディレクトリを強制しない。
@@ -297,13 +302,13 @@ verifyは接続用ファイルを生成・撤去しない。診断ログは作�
 ### 任意のMatt接続
 
 `.workflow/connections/matt.json`はMatt用の任意の再生成定義である。
-SKILL利用前に`workflow:connection -- attach matt`を明示実行し、固定パスの
-`docs/agents/issue-tracker.md`を生成する。共通の文書規則への参照とローカルMarkdownの設定だけを持ち、
+SKILL利用前に`workflow:connection -- attach matt`を明示実行し、専用領域の
+`.workflow/external/matt/issue-tracker.md`を生成する。共通の文書規則への参照とローカルMarkdownの設定だけを持ち、
 SKILL本体は改造しない。`.workflow/external/matt/`を作業場所として利用できる。
 `workflow:connection -- detach matt`で未移管データを検査し、未変更の互換文書を撤去する。
 用語集`CONTEXT.md`・ADR・共通側へ移管した成果物は接続の所有対象ではなく、撤去しても残す。
 
-旧`docs/agents/domain.md`の規則は共通仕様に集約し、固定パスでの再生成を行わない。
+旧`docs/agents/domain.md`の規則は共通仕様に集約し、`docs/agents/`へ固定パスを生成しない。
 旧版の追跡済み互換文書の移行はレビューされた文書変更で行い、通常のattachで上書きしない。
 選択した接続の資料だけを参照し、共通の入口からすべての外部資料の読込を要求しない。
 Matt接続なし・定義削除後でも通常のverifyを実行でき、固有CLIテストは任意の`verify:examples`だけに含める。
