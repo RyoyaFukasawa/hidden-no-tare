@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -115,6 +115,11 @@ test('runs the fixed-version package through npm create and npm exec', async (co
     const packageInfo = packPackage(packageDirectory, npmCache);
     const tarballPath = join(packageDirectory, packageInfo.filename);
     ({ server, registry } = await startRegistry(packageInfo, tarballPath));
+    const archiveEntries = execFileSync('tar', ['-tzf', tarballPath], { encoding: 'utf8' });
+    assert.match(archiveEntries, /templates\/project\/docs\/adr\/README\.md/);
+    for (const id of ['0004', '0005', '0006', '0007']) {
+      assert.doesNotMatch(archiveEntries, new RegExp(`templates/project/docs/adr/${id}-`));
+    }
 
     execFileSync('git', ['init', '--initial-branch=main'], { cwd: project });
     execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: project });
@@ -130,6 +135,7 @@ test('runs the fixed-version package through npm create and npm exec', async (co
     assert.equal(manifest.framework.version, packageInfo.version);
     assert.ok(existsSync(join(project, 'scripts/verify.ts')));
     assert.ok(existsSync(join(project, 'scripts/workflow/prepare.ts')));
+    assert.deepEqual(readdirSync(join(project, 'docs/adr')).sort(), ['README.md']);
 
     symlinkSync(resolve('node_modules'), join(project, 'node_modules'), 'dir');
     const verify = await runNpm(['run', 'verify'], project, registry, npmCache);

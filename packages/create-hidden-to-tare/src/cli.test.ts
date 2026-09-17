@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -50,6 +51,11 @@ test('initializes a new repository without installing dependencies', () => {
     assert.ok(existsSync(join(root, 'AGENTS.md')));
     assert.ok(existsSync(join(root, 'scripts/verify.ts')));
     assert.ok(readdirSync(root).includes('package.json'));
+    assert.deepEqual(readdirSync(join(root, 'docs/adr')).sort(), ['README.md']);
+    assert.equal(readFileSync(join(root, 'docs/adr/README.md'), 'utf8'), [
+      '# ADR一覧', '', '<!-- 自動生成。ADR本体を編集し、一覧生成コマンドを実行してください。 -->', '',
+      '| ID | タイトル | 状態 | 置き換え元 | 後継 |', '| --- | --- | --- | --- | --- |', '',
+    ].join('\n'));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -167,7 +173,34 @@ test('updates owned files from the bundled npm package', () => {
     assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
     const result = run(root, ['update']);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(readFileSync(join(root, '.workflow/setup-manifest.json'), 'utf8')).framework.version, '0.1.0');
+    assert.equal(JSON.parse(readFileSync(join(root, '.workflow/setup-manifest.json'), 'utf8')).framework.version, '0.1.1');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('update preserves ADR files owned by the previous framework version', () => {
+  const root = fixture();
+  const legacyAdrs = Object.fromEntries(['0004', '0005', '0006', '0007'].map(id => [
+    `docs/adr/${id}-legacy-decision.md`, `---\nstatus: Draft\n---\n\n# ADR-${id}: Legacy decision\n`,
+  ]));
+  try {
+    assert.equal(run(root, ['init', '--package-manager', 'npm']).status, 0);
+    const manifestPath = join(root, '.workflow/setup-manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { framework: { version: string }; files: Record<string, string> };
+    manifest.framework.version = '0.1.0';
+    for (const [path, content] of Object.entries(legacyAdrs)) {
+      writeFileSync(join(root, path), content);
+      manifest.files[path] = createHash('sha256').update(content).digest('hex');
+    }
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+    const result = run(root, ['update']);
+    assert.equal(result.status, 0, result.stderr);
+    for (const [path, content] of Object.entries(legacyAdrs)) {
+      assert.equal(readFileSync(join(root, path), 'utf8'), content);
+      assert.equal(Object.hasOwn((JSON.parse(readFileSync(manifestPath, 'utf8')) as { files: Record<string, unknown> }).files, path), false);
+    }
+    assert.equal((JSON.parse(readFileSync(manifestPath, 'utf8')) as { framework: { version: string } }).framework.version, '0.1.1');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

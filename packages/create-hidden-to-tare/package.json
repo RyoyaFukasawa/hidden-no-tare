@@ -1,6 +1,6 @@
 {
   "name": "create-hidden-to-tare",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Initialize the exchangeable development workflow in a new Git repository.",
   "type": "module",
   "bin": {
