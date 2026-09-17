@@ -335,5 +335,5 @@ Matt接続なし・定義削除後でも通常のverifyを実行でき、固有C
 
 ## 関連文書
 
-- 判断の理由を記録したADR：[ADR-0004](../adr/0004-workflow-contract-ownership.md)
+- 判断の理由を記録したADR：[ADR一覧](../adr/README.md)
 - 成果物テンプレート：[テンプレート一覧](../templates/README.md)
